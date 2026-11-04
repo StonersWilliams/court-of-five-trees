@@ -89,10 +89,10 @@
       this.elite = false;
       this.radius = conf.radius;
       this.scale = 4;
-      this.maxHp = Math.round(conf.hp * (1 + 0.45 * (this.floor - 1)));
+      this.maxHp = Math.round(conf.hp * (1.18 + 0.62 * (this.floor - 1)));
       this.hp = this.maxHp;
-      this.speedBase = conf.speed;
-      this.damage = Math.round(conf.damage * (1 + 0.22 * (this.floor - 1)));
+      this.speedBase = conf.speed * (1 + 0.06 * (this.floor - 1));
+      this.damage = Math.round(conf.damage * (1.10 + 0.32 * (this.floor - 1)));
       this.xpValue = conf.xp + this.floor * 20;
       this.color = conf.color;
       this.spawnTimer = 1.35;
@@ -214,15 +214,15 @@
     }
 
     phaseCheck() {
-      if (this.phase === 1 && this.hp <= this.maxHp * 0.5) {
+      if (this.phase === 1 && this.hp <= this.maxHp * 0.6) {
         this.phase = 2;
-        this.speedBase *= 1.16;
-        this.attackCd = Math.min(this.attackCd, 0.65);
-        Ink.FX.explosion(this.game, this.x, this.y, 110, this.color);
+        this.speedBase *= 1.22;
+        this.attackCd = Math.min(this.attackCd, 0.55);
+        Ink.FX.explosion(this.game, this.x, this.y, 120, this.color);
         Ink.FX.text(this.game, '二阶段 · ' + this.name + ' 动了真格', this.x, this.y - 88, '#ffd36b', 18, 1.4);
-        this.game.addShake(8, 0.4);
+        this.game.addShake(9, 0.45);
         this.game.audio.sfx('boss');
-        this.ring(18, 190, { color: '#ffd36b' });
+        this.ring(24, 205, { color: '#ffd36b' });
       }
     }
 
@@ -285,7 +285,8 @@
     _tickAttack(dt, intervalScale = 1) {
       this.attackCd -= dt;
       if (this.attackCd > 0) return false;
-      this.attackCd = this.conf.interval * intervalScale * (this.phase === 2 ? 0.74 : 1);
+      const floorRush = Math.max(0.72, 1 - 0.07 * (this.floor - 1));
+      this.attackCd = this.conf.interval * intervalScale * floorRush * (this.phase === 2 ? 0.68 : 1);
       this.pattern++;
       return true;
     }

@@ -93,12 +93,16 @@
       const rooms = [];
       const stage1 = this._makeRoom(floorIndex, rooms.length, 'battle', 0, 1, 1, rng);
       rooms.push(stage1);
-      const stage2 = this._makeRoom(floorIndex, rooms.length, 'elite', 1, 1, 2, rng);
+      const stage2 = this._makeRoom(floorIndex, rooms.length, 'battle', 1, 1, 2, rng);
       rooms.push(stage2);
-      const bossRoom = this._makeRoom(floorIndex, rooms.length, 'boss', 2, 1, 3, rng);
+      const stage3 = this._makeRoom(floorIndex, rooms.length, 'elite', 2, 1, 3, rng);
+      rooms.push(stage3);
+      const stage4 = this._makeRoom(floorIndex, rooms.length, 'battle', 3, 1, 4, rng);
+      rooms.push(stage4);
+      const bossRoom = this._makeRoom(floorIndex, rooms.length, 'boss', 4, 1, 5, rng);
       bossRoom.name = (bossConf && bossConf.roomName) || rng.pick(BOSS_ROOM_FALLBACK);
       rooms.push(bossRoom);
-      const shop = this._makeRoom(floorIndex, rooms.length, 'shop', 1, shopY, 0, rng);
+      const shop = this._makeRoom(floorIndex, rooms.length, 'shop', 2, shopY, 0, rng);
       shop.name = rng.pick(SHOP_NAMES);
       rooms.push(shop);
 
@@ -108,8 +112,10 @@
       shop.visited = false;
 
       this._connect(stage1, stage2);
-      this._connect(stage2, bossRoom);
-      this._connect(stage2, shop);
+      this._connect(stage2, stage3);
+      this._connect(stage3, stage4);
+      this._connect(stage4, bossRoom);
+      this._connect(stage3, shop);
 
       const floor = {
         index: floorIndex,
@@ -122,11 +128,12 @@
         startRoomId: stage1.id,
         bossRoomId: bossRoom.id,
         shopRoomId: shop.id,
-        spineIds: [stage1.id, stage2.id, bossRoom.id],
+        spineIds: [stage1.id, stage2.id, stage3.id, stage4.id, bossRoom.id],
         bossId,
         bossUnlocked: false,
-        passiveOffered: false,
-        mapW: 3,
+        passiveOffered2: false,
+        passiveOffered4: false,
+        mapW: 5,
         mapH: 3
       };
 
@@ -237,7 +244,7 @@
     _buildSpawnPlan(room, floorIndex, rng) {
       if (room.type === 'boss' || room.type === 'shop') return [];
       const eliteRoom = room.type === 'elite';
-      const base = (room.stage === 2 ? 4 : 3) + floorIndex + rng.int(0, 1);
+      const base = (room.stage === 3 ? 4 : room.stage === 4 ? 3 : 3) + floorIndex + rng.int(0, 1);
       const normalCount = Math.max(2, base - (eliteRoom ? 1 : 0));
       const count = normalCount + (eliteRoom ? 1 : 0);
       const pool = ENEMY_POOLS[Math.min(ENEMY_POOLS.length - 1, floorIndex)];

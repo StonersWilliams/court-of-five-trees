@@ -16,6 +16,15 @@
   const U = Ink.U;
   const PAL = Ink.PAL;
 
+  // 每个角色的初始兵刃：后续仍可自由更换/丢弃，不锁死职业。
+  const STARTING_WEAPON = {
+    qiyun: 'flintlock',
+    xiaoying: 'shears',
+    xinyue: 'lantern',
+    ziyu: 'inkmaw',
+    smartdog: 'boneflute'
+  };
+
   class Player {
     constructor(game, charId) {
       this.game = game;
@@ -65,9 +74,12 @@
       this.slowMult = 1;
 
       // ── 武器 / 局内资源 / 机制被动 ──────────────────────
-      this.weaponId = 'flintlock';
+      this.weaponId = STARTING_WEAPON[charId] || 'flintlock';
       this.weaponCd = 0;
       this.weaponCdMax = this.weapon ? this.weapon.cooldown : 1;
+      this.weaponRecoil = 0;
+      this.weaponFlash = 0;
+      this.skillFlash = 0;
       this.coins = 0;
       this.passives = [];
       this.bonusBounce = 0;
@@ -83,6 +95,9 @@
       this.overchargeHits = 0;
       this.coinMult = 1;
       this.lastStand = false;
+      this.guardian = false;
+      this.swift = false;
+      this.swiftTimer = 0;
 
       this._prevRight = false;
       this.char.onSpawn();
@@ -93,17 +108,18 @@
     }
 
     // ── 属性与升级 ────────────────────────────────────────
+    // 局内不再成长基础属性：生命/护甲/移速来自角色面板，
+    // 输出完全由当前武器提供；升级只给机制被动。
     recomputeStats(healDelta = false) {
-      const surv = this.upgrades.survival;
       const oldMax = this.maxHp;
       const oldArmorMax = this.maxArmor;
 
-      this.maxHp = Math.round(this.baseMaxHp * (1 + 0.12 * surv));
-      this.maxArmor = Math.round(this.baseArmor + surv * 2);
-      this.speed = this.baseSpeed * (1 + 0.07 * this.upgrades.speed);
-      this.damage = this.baseDamage * (1 + 0.18 * this.upgrades.damage);
-      this.atkInterval = this.baseAtkInterval / (1 + 0.14 * this.upgrades.atkSpeed);
-      this.skillCdMax = this.baseCooldown * Math.max(0.55, 1 - 0.1 * this.upgrades.cooldown);
+      this.maxHp = Math.round(this.baseMaxHp);
+      this.maxArmor = Math.round(this.baseArmor);
+      this.speed = this.baseSpeed;
+      this.damage = this.baseDamage;
+      this.atkInterval = this.baseAtkInterval;
+      this.skillCdMax = this.baseCooldown;
 
       if (healDelta) this.hp = Math.min(this.maxHp, this.hp + (this.maxHp - oldMax));
       this.hp = Math.min(this.hp, this.maxHp);
@@ -112,31 +128,65 @@
       this.skillCd = Math.min(this.skillCd, this.skillCdMax);
     }
 
+    /** 兼容旧接口；新版本不再提供基础属性升级。 */
     applyUpgrade(kind) {
-      if (!(kind in this.upgrades)) return;
-      this.upgrades[kind]++;
-      const levelUp = kind === 'survival';
-      this.recomputeStats(levelUp);
-      if (levelUp) {
-        this.heal(this.maxHp * 0.18);
-        this.addArmor(2);
-      } else {
-        this.heal(this.maxHp * 0.05);
-      }
-      this.game.audio.sfx('levelup');
+      return false;
     }
 
     // ── 武器 / 被动 / 金币 ──────────────────────────────
-    equipWeapon(id) {
+    /**
+     * 装备武器。默认把旧武器丢在脚下，避免“到手就消失”。
+     * opts.silent 用于空手回退等内部切换。
+     */
+    equipWeapon(id, opts = {}) {
       const def = Ink.WeaponDefs && Ink.WeaponDefs[id];
       if (!def) return false;
+      const oldId = this.weaponId;
       this.weaponId = id;
       this.weaponCdMax = def.cooldown;
-      this.weaponCd = Math.min(this.weaponCd, 0.25);
-      if (this.game && this.game.ui) {
-        this.game.ui.showToast('获得武器 · ' + def.name, def.color || '#e8c170', 2.2);
+      this.weaponCd = Math.min(this.weaponCd, 0.18);
+      this.weaponRecoil = 0.7;
+      this.weaponFlash = 0.06;
+
+      if (opts.dropCurrent && oldId && oldId !== id && !opts.silent) {
+        // 旧枪落在身后 66px，避免刚换枪就被自动捡回。
+        this.dropWeaponAt(
+          oldId,
+          this.x - Math.cos(this.aimAngle) * 66,
+          this.y - Math.sin(this.aimAngle) * 66,
+          false
+        );
+      }
+      if (!opts.silent && this.game && this.game.ui) {
+        this.game.ui.showToast('装备 · ' + def.name, def.color || '#e8c170', 2.0);
       }
       if (this.game && this.game.audio) this.game.audio.sfx('skillReady');
+      return true;
+    }
+
+    /** 把指定武器作为地面掉落物放到场景里。 */
+    dropWeaponAt(id, x, y, scatter = true) {
+      if (!id || id === 'fists' || !this.game) return null;
+      return this.game.dropWeaponPickup(id, x, y, scatter);
+    }
+
+    /** G / 触屏“丢”按钮：丢下当前武器并空手。 */
+    dropWeapon() {
+      if (!this.weapon || this.weaponId === 'fists') return false;
+      const id = this.weaponId;
+      // 丢在准星方向 66px：玩家需要走一步才能重新捡起，避免原地无限交换。
+      this.dropWeaponAt(
+        id,
+        this.x + Math.cos(this.aimAngle) * 66,
+        this.y + Math.sin(this.aimAngle) * 66,
+        false
+      );
+      this.weaponId = 'fists';
+      this.weaponCdMax = 0.45;
+      this.weaponCd = 0.2;
+      if (this.game && this.game.ui) {
+        this.game.ui.showToast('已丢下兵刃 · 空手作战', '#ffb35c', 1.6);
+      }
       return true;
     }
 
@@ -171,7 +221,7 @@
     }
 
     _weaponCooldown() {
-      return this.weaponCdMax / (1 + 0.10 * this.upgrades.atkSpeed);
+      return this.weaponCdMax;
     }
 
     updateWeapon(dt) {
@@ -212,6 +262,9 @@
       }
       this.weaponCd = this._weaponCooldown();
       this.weaponCdMax = def.cooldown;
+      this.weaponRecoil = 1;
+      this.weaponFlash = 0.085;
+      if ((def.damage || 0) >= 40) this.game.addShake(3, 0.1);
       this.game.audio.sfx(def.sfx || 'shoot');
       return true;
     }
@@ -220,10 +273,11 @@
       const def = opts.def || {};
       const crit = Math.random() < this.critChance;
       const angle = this.aimAngle + (opts.angleOffset || 0);
-      const px = this.x + Math.cos(angle) * 20;
-      const py = this.y + Math.sin(angle) * 20 - 2;
+      const px = this.x + Math.cos(angle) * 24;
+      const py = this.y + Math.sin(angle) * 24 - 2;
       const self = this;
-      const dmg = this.damage * (def.damageMult || 1) *
+      // 伤害来自武器本体，而不是角色基础伤害 × 倍率。
+      const dmg = (opts.damage || def.damage || 8) *
         (crit ? 1.65 : 1) * this.damageMultiplier();
       const proj = Ink.fire(this.game, {
         x: px, y: py, angle,
@@ -290,7 +344,7 @@
       for (const e of this.game.enemies.slice()) {
         if (e.dead || e.spawnTimer > 0) continue;
         if (U.dist(proj.x, proj.y, e.x, e.y) > radius + e.radius) continue;
-        this.game.damageEnemy(e, this.damage * mult * this.damageMultiplier(), {
+        this.game.damageEnemy(e, (proj.damage || this.damage) * mult, {
           source: 'weapon', color: opts.color || '#ffb35c', crit: false
         });
       }
@@ -341,6 +395,10 @@
       this.atkCd = Math.max(0, this.atkCd - dt);
       this.skillCd = Math.max(0, this.skillCd - dt);
       this.slowTimer = Math.max(0, this.slowTimer - dt);
+      this.weaponRecoil = Math.max(0, this.weaponRecoil - dt * 9);
+      this.weaponFlash = Math.max(0, this.weaponFlash - dt);
+      this.skillFlash = Math.max(0, this.skillFlash - dt);
+      this.swiftTimer = Math.max(0, this.swiftTimer - dt);
 
       // 护甲回复：脱战 4.5 秒后每秒回复 1.5 点
       if (this.armorRegenTimer > 0) {
@@ -356,13 +414,16 @@
       }
       const input = this.game.input;
       if (input.wasPressed('Space', 'KeyE')) this.tryUseSkill();
+      if (input.wasPressed('KeyG')) this.dropWeapon();
       const rightNow = input.mouse.right;
       if (rightNow && !this._prevRight) this.tryUseSkill();
       this._prevRight = rightNow;
 
       // 移动
       const mv = this.game.getMoveVector();
-      const sp = this.speed * (this.slowTimer > 0 ? this.slowMult : 1);
+      const sp = this.speed
+        * (this.swiftTimer > 0 ? 1.25 : 1)
+        * (this.slowTimer > 0 ? this.slowMult : 1);
       if (mv.x !== 0 || mv.y !== 0) {
         this.x += mv.x * sp * dt;
         this.y += mv.y * sp * dt;
@@ -381,16 +442,8 @@
 
       this.char.update(dt);
 
-      // 普攻
-      if (this.wantFire()) {
-        if (this.atkCd <= 0) {
-          if (this.char.basicAttack()) {
-            this.atkCd = this.atkInterval;
-          }
-        }
-      }
-
-      // 武器独立冷却；与角色普攻叠加，形成“角色 + 武器”的输出层次
+      // 角色不再自带普攻；所有基础输出都由手中武器提供。
+      // 角色的 onBasicHit 仍会在武器命中时触发，棋云/字狱/小影的被动因此保留。
       this.updateWeapon(dt);
     }
 
@@ -436,8 +489,9 @@
 
     wantFire() {
       const input = this.game.input;
+      const range = this.weapon ? this.weapon.range : this.def.range;
       if (this.game.touchMode) {
-        const target = this.nearestEnemy(this.def.range + 30);
+        const target = this.nearestEnemy(range + 24);
         return !!target;
       }
       return input.mouse.down || input.isDown('KeyJ');
@@ -547,6 +601,12 @@
       const ok = this.char.useSkill();
       if (ok) {
         this.skillCd = this.skillCdMax;
+        this.skillFlash = 0.28;
+        this.game.addShake(2.5, 0.16);
+        Ink.FX.ring(this.game, {
+          x: this.x, y: this.y - 4, r0: 10, r1: 62, life: 0.36,
+          color: this.def.accent || PAL.gold, width: 2
+        });
         this.game.audio.sfx('skill');
       }
       return ok;
@@ -629,6 +689,7 @@
     onRoomEnter() {
       this.char.onRoomEnter();
       this.invuln = Math.max(this.invuln, 0.6);
+      if (this.guardian) this.addArmor(4);
     }
 
     // ── 绘制 ──────────────────────────────────────────────
@@ -671,6 +732,36 @@
         Ink.Art.drawSprite(ctx, 'char:' + this.charId, this.x, this.y + bob, 3, {
           frame, flip: this.facing < 0, alpha: 0.5, tint: '#ffffff'
         });
+      }
+
+      // 手持武器实体：跟随手部、朝准星旋转，开火时后坐 + 枪口火光
+      if (this.weapon && this.weapon.id !== 'fists') {
+        // 武器挂在手部：沿瞄准方向伸出手臂，避免整把枪压在角色身体里。
+        const handX = this.x + Math.cos(this.aimAngle) * 16 + this.facing * 3;
+        const handY = this.y + bob + 4 + Math.sin(this.aimAngle) * 10;
+        ctx.save();
+        ctx.globalAlpha = 0.20;
+        ctx.fillStyle = this.weapon.color || '#e8c170';
+        ctx.beginPath();
+        ctx.arc(handX, handY, 13, 0, U.TAU);
+        ctx.fill();
+        ctx.restore();
+        Ink.Weapons.drawHeld(ctx, this.weapon, handX, handY, this.aimAngle, 1.9, {
+          recoil: this.weaponRecoil,
+          flash: this.weaponFlash
+        });
+      }
+
+      // 技能释放瞬间的通用光爆，强化“按下技能”的反馈
+      if (this.skillFlash > 0) {
+        ctx.save();
+        ctx.globalAlpha = this.skillFlash / 0.28 * 0.5;
+        ctx.strokeStyle = this.def.accent || PAL.gold;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y - 2, 30 + (0.28 - this.skillFlash) * 180, 0, U.TAU);
+        ctx.stroke();
+        ctx.restore();
       }
 
       // 瞄准短线（桌面）

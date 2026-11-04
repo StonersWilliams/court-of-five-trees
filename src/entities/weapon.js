@@ -170,7 +170,109 @@
     }
   };
 
-  const LIST = Object.keys(DEFS);
+  // 武器提供“基础输出来源”：伤害是绝对值，冷却决定攻速。
+  // 角色面板只负责技能与生存，局内不再刷伤害/攻速/冷却等基础属性。
+  const BASE_DAMAGE = {
+    flintlock: 24, ironbolt: 16, twin: 15, sling: 11, pinecone: 30,
+    bees: 8, spear: 22, frostbow: 20, flowerstaff: 11, thunder: 26,
+    inkmaw: 7, boneflute: 10, sunrepeater: 9, echo: 17, shears: 19,
+    ninesun: 17, reaper: 44, towerbomb: 48, peachwand: 9, lantern: 16
+  };
+  for (const id of Object.keys(DEFS)) {
+    const d = DEFS[id];
+    if (!d.damage) d.damage = BASE_DAMAGE[id] || 12;
+    if (!d.range) d.range = d.icon === 'blade' ? 220 : 560;
+  }
+
+  // ── 庭主专属武器：只在对应庭主死亡时掉落，不进入商店随机池 ──
+  const BOSS_DEFS = {
+    truffle: {
+      id: 'truffle', name: '松露菌杖', rarity: 'epic', price: 0,
+      color: '#d8b07a', visual: 'spike', icon: 'staff', cooldown: 0.7,
+      damage: 34, range: 540, shots: 2, spread: 0.18, speed: 500, radius: 7,
+      life: 1.5, explode: 56, explodeMult: 0.55, slow: [0.55, 1.5], ink: true,
+      bossOnly: true, bossId: 'truffle',
+      desc: '松露君的菌伞杖。每一发都在地上种一小片毒雾。'
+    },
+    sunstar: {
+      id: 'sunstar', name: '环日星盘', rarity: 'epic', price: 0,
+      color: '#ffd36b', visual: 'orb', icon: 'orb', cooldown: 0.48,
+      damage: 26, range: 600, shots: 3, spread: 0.26, speed: 640, radius: 5,
+      life: 1.5, burn: [2.0, 4], glow: true, trail: true,
+      bossOnly: true, bossId: 'sunstar',
+      desc: '三枚小日轮绕着手腕转。命中后留下灼痕。'
+    },
+    ninesun: {
+      id: 'ninesun', name: '九阳神铳', rarity: 'epic', price: 0,
+      color: '#ff8a4c', visual: 'orb', icon: 'gun', cooldown: 0.44,
+      damage: 27, range: 600, shots: 2, spread: 0.12, speed: 700, radius: 6,
+      life: 1.5, burn: [2.2, 6], glow: true,
+      bossOnly: true, bossId: 'ninesun',
+      desc: '九阳神君的佩铳。枪口还留着第九个太阳的温度。'
+    },
+    peach: {
+      id: 'peach', name: '桃柱花杖', rarity: 'epic', price: 0,
+      color: '#ffb7c8', visual: 'petal', icon: 'staff', cooldown: 0.34,
+      damage: 17, range: 560, shots: 4, spread: 0.36, speed: 570, radius: 4,
+      life: 1.6, homing: 2.0, trail: true,
+      bossOnly: true, bossId: 'peach',
+      desc: '桃柱的一截花枝。四片花瓣会自己找人。'
+    },
+    oga: {
+      id: 'oga', name: '尾刚名刀', rarity: 'epic', price: 0,
+      color: '#aab6ff', visual: 'needle', icon: 'blade', cooldown: 0.52,
+      damage: 48, range: 260, shots: 1, spread: 0, speed: 760, radius: 6,
+      life: 1.3, pierce: 3, bounce: 1, knockback: 80,
+      bossOnly: true, bossId: 'oga',
+      desc: '尾刚一郎的居合刀。刀气比人先到。'
+    },
+    june: {
+      id: 'june', name: '六月云伞', rarity: 'epic', price: 0,
+      color: '#b7d9ff', visual: 'needle', icon: 'charm', cooldown: 0.4,
+      damage: 19, range: 560, shots: 3, spread: 0.3, speed: 560, radius: 5,
+      life: 1.6, slow: [0.55, 1.4], trail: true,
+      bossOnly: true, bossId: 'june',
+      desc: '六月云之末的伞骨。雨点会追上逃跑的人。'
+    },
+    tower: {
+      id: 'tower', name: '伦敦钟锤', rarity: 'epic', price: 0,
+      color: '#ffd36b', visual: 'orb', icon: 'bomb', cooldown: 0.9,
+      damage: 56, range: 560, shots: 1, spread: 0, speed: 340, radius: 11,
+      life: 1.4, explode: 96, explodeMult: 0.85, knockback: 110,
+      bossOnly: true, bossId: 'tower',
+      desc: '伦敦塔的钟摆锤。砸下去时，整层楼都会响。'
+    },
+    bigmon: {
+      id: 'bigmon', name: '大大怪骨棒', rarity: 'epic', price: 0,
+      color: '#8ef0c8', visual: 'bone', icon: 'blade', cooldown: 0.78,
+      damage: 62, range: 250, shots: 1, spread: 0, speed: 620, radius: 9,
+      life: 1.2, pierce: 2, knockback: 130,
+      bossOnly: true, bossId: 'bigmon',
+      desc: '大大怪随手掰下来的骨头。重量就是道理。'
+    },
+    edo: {
+      id: 'edo', name: '江户十二口扇', rarity: 'epic', price: 0,
+      color: '#c084fc', visual: 'petal', icon: 'charm', cooldown: 0.28,
+      damage: 15, range: 580, shots: 6, spread: 0.68, speed: 620, radius: 4,
+      life: 1.4, homing: 1.6, trail: true,
+      bossOnly: true, bossId: 'edo',
+      desc: '十二张嘴同时吹气。六片扇羽各自追人。'
+    }
+  };
+  Object.assign(DEFS, BOSS_DEFS);
+
+  // 空手：丢下武器后的保底状态，不出现在商店/掉落池。
+  DEFS.fists = {
+    id: 'fists', name: '空手', rarity: 'common', price: 0,
+    color: '#d8cbb0', visual: 'needle', icon: 'blade', cooldown: 0.45,
+    damage: 8, range: 130, shots: 1, spread: 0, speed: 420, radius: 3,
+    life: 0.7, hidden: true,
+    desc: '没有兵刃，只能挥拳。'
+  };
+
+  const LIST = Object.keys(DEFS).filter((id) => !DEFS[id].bossOnly && !DEFS[id].hidden);
+  const BOSS_WEAPONS = {};
+  for (const id of Object.keys(BOSS_DEFS)) BOSS_WEAPONS[BOSS_DEFS[id].bossId] = id;
 
   function roll(rng) {
     return typeof rng === 'function' ? rng() : Math.random();
@@ -336,17 +438,168 @@
     ctx.restore();
   }
 
+  /**
+   * 手持武器建模：以角色手部为原点，朝 aimAngle 方向绘制。
+   * 每种 icon 都有自己的枪管/弓臂/刀身轮廓，不再是角色贴图上的一个色块。
+   */
+  function drawHeld(ctx, defOrId, x, y, angle, scale, opts = {}) {
+    const d = typeof defOrId === 'string' ? DEFS[defOrId] : defOrId;
+    if (!d) return;
+    const s = scale || 1.7;
+    const c = d.color || '#e8c170';
+
+    ctx.save();
+    ctx.translate(Math.round(x), Math.round(y));
+    ctx.rotate(angle);
+    // 朝左瞄准时把武器翻正，避免整把枪倒过来。
+    if (Math.cos(angle) < 0) ctx.scale(1, -1);
+    if (opts.recoil) ctx.translate(-opts.recoil * 3, 0);
+    ctx.scale(s, s);
+    ctx.imageSmoothingEnabled = false;
+
+    // 握把
+    ctx.fillStyle = '#2a1e25';
+    ctx.fillRect(-5, -2, 7, 4);
+    ctx.fillStyle = '#8d6d50';
+    ctx.fillRect(-4, -2, 2, 4);
+
+    const kind = d.icon || 'gun';
+    if (kind === 'gun') {
+      ctx.fillStyle = '#43303a';
+      ctx.fillRect(1, -2, 12, 4);
+      ctx.fillStyle = c;
+      ctx.fillRect(6, -3, 8, 5);
+      ctx.fillStyle = '#fff1cc';
+      ctx.fillRect(13, -2, 2, 3);
+      ctx.fillStyle = '#6d5261';
+      ctx.fillRect(3, 2, 3, 4);
+    } else if (kind === 'bow') {
+      ctx.strokeStyle = c;
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.arc(5, 0, 8, -1.1, 1.1);
+      ctx.stroke();
+      ctx.strokeStyle = '#efe0c4';
+      ctx.lineWidth = 0.8;
+      ctx.beginPath();
+      ctx.moveTo(9, -7);
+      ctx.lineTo(9, 7);
+      ctx.stroke();
+    } else if (kind === 'staff') {
+      ctx.strokeStyle = '#745b46';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(-6, 1);
+      ctx.lineTo(12, -4);
+      ctx.stroke();
+      ctx.fillStyle = c;
+      ctx.beginPath();
+      ctx.arc(13, -5, 4, 0, U.TAU);
+      ctx.fill();
+      ctx.fillStyle = '#fff6e7';
+      ctx.fillRect(12, -7, 2, 2);
+    } else if (kind === 'blade') {
+      ctx.fillStyle = '#3a2c2c';
+      ctx.fillRect(-2, -2, 5, 4);
+      ctx.fillStyle = c;
+      ctx.beginPath();
+      ctx.moveTo(3, 2);
+      ctx.lineTo(18, -4);
+      ctx.lineTo(20, -1);
+      ctx.lineTo(5, 4);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = '#fff6e7';
+      ctx.fillRect(16, -3, 3, 1);
+    } else if (kind === 'bomb') {
+      ctx.fillStyle = '#2b2434';
+      ctx.beginPath();
+      ctx.arc(9, 0, 5, 0, U.TAU);
+      ctx.fill();
+      ctx.fillStyle = c;
+      ctx.fillRect(4, -2, 10, 3);
+      ctx.strokeStyle = '#e8c170';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(12, -4);
+      ctx.quadraticCurveTo(16, -8, 14, -10);
+      ctx.stroke();
+    } else if (kind === 'charm') {
+      ctx.fillStyle = '#efe0c4';
+      ctx.fillRect(7, -7, 8, 14);
+      ctx.fillStyle = c;
+      ctx.fillRect(9, -5, 4, 2);
+      ctx.fillRect(9, -1, 4, 2);
+      ctx.fillRect(9, 3, 4, 1);
+      ctx.strokeStyle = '#8a6a4a';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(7, -4);
+      ctx.stroke();
+    } else if (kind === 'needle') {
+      ctx.strokeStyle = c;
+      ctx.lineWidth = 1.2;
+      for (let i = -1; i <= 1; i++) {
+        ctx.beginPath();
+        ctx.moveTo(1, i * 2);
+        ctx.lineTo(16, i * 3 - 2);
+        ctx.stroke();
+      }
+      ctx.fillStyle = '#fff6e7';
+      ctx.fillRect(15, -4, 2, 2);
+    } else if (kind === 'sling') {
+      ctx.strokeStyle = '#8a6a4a';
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.moveTo(1, -5);
+      ctx.lineTo(8, 0);
+      ctx.lineTo(1, 5);
+      ctx.stroke();
+      ctx.fillStyle = c;
+      ctx.fillRect(7, -2, 4, 4);
+    } else {
+      ctx.fillStyle = c;
+      ctx.beginPath();
+      ctx.arc(8, 0, 5, 0, U.TAU);
+      ctx.fill();
+      ctx.fillStyle = '#fff6e7';
+      ctx.fillRect(7, -1, 2, 2);
+    }
+
+    // 枪口/法杖前端的火光
+    if (opts.flash > 0) {
+      ctx.globalAlpha = U.clamp(opts.flash / 0.08, 0, 1);
+      const fx = kind === 'staff' || kind === 'charm' || kind === 'orb' ? 14 : 17;
+      ctx.fillStyle = '#fff6d0';
+      ctx.beginPath();
+      ctx.moveTo(fx + 5, 0);
+      ctx.lineTo(fx, -4);
+      ctx.lineTo(fx + 1, 0);
+      ctx.lineTo(fx, 4);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = d.color;
+      ctx.fillRect(fx - 1, -1, 3, 2);
+    }
+    ctx.restore();
+  }
+
   Ink.Rarity = RARITY;
   Ink.WeaponDefs = DEFS;
   Ink.WeaponList = LIST;
+  Ink.BossWeapons = BOSS_WEAPONS;
   Ink.Weapons = {
     defs: DEFS,
     list: LIST,
+    bossWeapons: BOSS_WEAPONS,
     rarity: RARITY,
     randomForFloor,
     randomOffers,
     priceFor,
     drawIcon,
+    drawHeld,
+    bossFor(bossId) { return DEFS[BOSS_WEAPONS[bossId]] || null; },
     get(id) { return DEFS[id] || null; }
   };
 })();

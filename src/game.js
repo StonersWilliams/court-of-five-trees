@@ -43,6 +43,8 @@
       this.life = 32;
       this.maxLife = 32;
       this.radius = kind === 'heart' ? 8 : kind === 'weapon' ? 14 : kind === 'coin' ? 7 : 6;
+      this.armTimer = kind === 'weapon' ? 0.9 : 0;
+      this.noMagnet = false;
       this.dead = false;
       this.time = U.rand(0, 6);
     }
@@ -51,13 +53,14 @@
       if (this.dead) return;
       this.time += dt;
       this.life -= dt;
+      this.armTimer = Math.max(0, (this.armTimer || 0) - dt);
       if (this.life <= 0) { this.dead = true; return; }
 
       const p = game.player;
       if (!p || p.dead) return;
       const d = U.dist(this.x, this.y, p.x, p.y);
-      let magnetRadius = 150;
-      if (p.hasPassive && p.hasPassive('magnet')) magnetRadius += 80;
+      let magnetRadius = this.noMagnet ? 0 : 150;
+      if (!this.noMagnet && p.hasPassive && p.hasPassive('magnet')) magnetRadius += 80;
       if (d < magnetRadius) {
         // 磁吸：越近吸得越快
         const a = U.angleTo(this, p);
@@ -73,7 +76,7 @@
       this.vy *= drag;
 
       const pickR = this.kind === 'weapon' ? 34 : 24;
-      if (d < pickR) {
+      if (d < pickR && this.armTimer <= 0) {
         this.dead = true;
         if (this.kind === 'heart') {
           p.heal(this.value);
@@ -82,9 +85,8 @@
           p.addCoins(this.value);
           FX.text(game, '+' + this.value + ' 金币', p.x, p.y - 36, '#ffd36b', 12, 0.7);
         } else if (this.kind === 'weapon') {
-          const w = Ink.Weapons.get(this.weaponId);
-          p.equipWeapon(this.weaponId);
-          game.ui.showToast('拾取武器 · ' + (w ? w.name : '未知兵刃'), w ? w.color : PAL.gold, 2.2);
+          // 换枪：旧武器自动落在脚边，玩家可以反悔捡回。
+          p.equipWeapon(this.weaponId, { dropCurrent: true });
         } else {
           p.gainXp(this.value);
         }
@@ -384,20 +386,16 @@
       this.skillRequest = false;
     }
 
-    // ── 升级三选一 ────────────────────────────────────────
+    // ── 等级：不再提升基础属性，也不弹升级卡 ───────────────
     onPlayerLevelUp(level) {
       if (this.state === 'gameover' || this.state === 'victory') return;
-      this.pendingLevelUps++;
-      if (this.state === 'playing') this.openUpgrade();
+      this.audio.sfx('levelup');
+      this.ui.showToast('等级提升 · 生命回复', '#8fd6ff', 1.2);
     }
 
+    // 保留旧接口，供旧存档/调试调用；正常流程不再进入 levelup。
     openUpgrade() {
-      const pool = U.shuffle(UPGRADE_KEYS.slice());
-      this.upgradeChoices = pool.slice(0, 3);
-      this.state = 'levelup';
-      this.touchMove = { x: 0, y: 0 };
-      this.skillRequest = false;
-      this.audio.sfx('levelup');
+      this.ui.showToast('本版本不提供基础属性升级，机关来自武器与被动。', PAL.gold, 1.8);
     }
 
     chooseUpgrade(kind) {
@@ -467,7 +465,7 @@
         }
         p.hp -= hpCost;
         offer.sold = true;
-        p.equipWeapon(offer.id);
+        p.equipWeapon(offer.id, { dropCurrent: true });
         this.shopNotice = '以 ' + hpCost + ' 点生命换来武器。';
       } else {
         if (p.coins < offer.price) {
@@ -477,7 +475,7 @@
         }
         p.addCoins(-offer.price);
         offer.sold = true;
-        p.equipWeapon(offer.id);
+        p.equipWeapon(offer.id, { dropCurrent: true });
         this.shopNotice = '交易达成。兵刃已入手。';
       }
       this.audio.sfx('pickup');
@@ -911,9 +909,9 @@
       });
       this.ui.showToast('关卡 ' + (room.stage || 1) + ' 已清 · 门扉开启', '#8ef0c8', 1.6);
 
-      // 每层第 2 关结束：从机制被动里三选一。
-      if (room.stage === 2 && !this.floorData.passiveOffered) {
-        this.floorData.passiveOffered = true;
+      // 每层第 2、4 关结束：从机制被动里三选一。
+      if ((room.stage === 2 || room.stage === 4) && !this.floorData['passiveOffered' + room.stage]) {
+        this.floorData['passiveOffered' + room.stage] = true;
         this.passivePending = true;
       }
     }
@@ -941,7 +939,7 @@
             const target = this.dungeon.getRoom(this.floorData, d.targetId);
             const bossLocked = target && target.type === 'boss';
             this.ui.showToast(
-              bossLocked ? '层主门封印 · 先清空主路' : '门被墨锁住了 · 清光敌人',
+              bossLocked ? '庭主门封印 · 先清空关卡 1–4' : '门被墨锁住了 · 清光敌人',
               '#ff9b7a', 1.4
             );
             this.audio.sfx('uiBack');
@@ -1005,6 +1003,7 @@
     onEnemyKilled(enemy, opts = {}) {
       this.runStats.kills++;
       if (this.player && this.player.char) this.player.char.onKill(enemy);
+      if (this.player && this.player.swift) this.player.swiftTimer = 2.0;
       if (opts.boss) {
         this.dropCoin(enemy.x, enemy.y, 24);
       } else if (Math.random() < 0.72) {
@@ -1037,12 +1036,14 @@
 
       const last = this.floorIndex >= Ink.FLOOR_COUNT - 1;
 
-      // 层主遗物：随机武器直接入手，避免玩家急着进传送门而错过。
-      const weaponId = Ink.Weapons.randomForFloor(this.floor);
-      const weapon = Ink.Weapons.get(weaponId);
-      if (weapon && this.player) {
-        this.player.equipWeapon(weaponId);
-        this.ui.showToast('层主遗物 · 获得「' + weapon.name + '」', weapon.color, 3.0);
+      // 层主专属武器：作为地面掉落物出现，不自动覆盖玩家当前武器。
+      // 玩家可以主动捡起，也可以选择保留自己的兵刃。
+      const bossWeapon = Ink.Weapons.bossFor(this.floorData.bossId);
+      if (bossWeapon && boss) {
+        this.dropWeaponPickup(bossWeapon.id, boss.x, boss.y, false);
+        FX.text(this, '庭主遗物', boss.x, boss.y - 58, bossWeapon.color, 15, 2.0);
+        FX.ring(this, { x: boss.x, y: boss.y, r0: 8, r1: 90, life: 0.7, color: bossWeapon.color, width: 2 });
+        this.ui.showToast('庭主遗物 ·「' + bossWeapon.name + '」已掉落', bossWeapon.color, 3.0);
       }
 
       this.portal = {
@@ -1086,6 +1087,20 @@
         if (v <= 0) continue;
         this.pickups.push(new Pickup(this, x + U.rand(-12, 12), y + U.rand(-10, 10), v, 'coin'));
       }
+    }
+
+    dropWeaponPickup(id, x, y, scatter = true) {
+      if (!id || !Ink.Weapons.get(id)) return null;
+      const A = Ink.ARENA;
+      const ox = scatter ? U.rand(-16, 16) : 0;
+      const oy = scatter ? U.rand(-12, 12) : 0;
+      const px = U.clamp(x + ox, A.x + 24, A.x + A.w - 24);
+      const py = U.clamp(y + oy, A.y + 24, A.y + A.h - 24);
+      const pk = new Pickup(this, px, py, 0, 'weapon', id);
+      pk.life = 999;
+      pk.noMagnet = true; // 武器必须走近拾取，不能被磁吸自动换装
+      this.pickups.push(pk);
+      return pk;
     }
 
     // ── 绘制 ─────────────────────────────────────────────

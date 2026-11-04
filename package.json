@@ -1,6 +1,6 @@
 {
   "name": "court-of-five-trees",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "private": false,
   "description": "庭有五棵树 — 零依赖 HTML5 Canvas 像素地牢肉鸽游戏",
   "license": "MIT",

@@ -66,13 +66,13 @@
     },
     guardian: {
       id: 'guardian', name: '守庭', color: '#9fe8ff',
-      desc: '护甲上限 +4，并立刻获得 4 点护甲。',
-      apply(p) { p.maxArmor += 4; p.armor = Math.min(p.maxArmor, p.armor + 4); }
+      desc: '每进入一个新房间，获得 4 点护甲。',
+      apply(p) { p.guardian = true; }
     },
     swift: {
       id: 'swift', name: '踏枝', color: '#8ef0c8',
-      desc: '移动速度 +12%。',
-      apply(p) { p.speed *= 1.12; }
+      desc: '击杀敌人后 2 秒内，移动速度 +25%。',
+      apply(p) { p.swift = true; }
     },
     greed: {
       id: 'greed', name: '拾荒者', color: '#ffd36b',

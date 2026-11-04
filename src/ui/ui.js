@@ -333,6 +333,12 @@
       const p = this.skillCenter;
 
       if (e.type === 'down') {
+        // 武器卡上的“丢”按钮（优先于摇杆，避免误触移动）。
+        const dr = this.weaponDropRect;
+        if (dr && e.x >= dr.x && e.x <= dr.x + dr.w && e.y >= dr.y && e.y <= dr.y + dr.h) {
+          if (this.game.player) this.game.player.dropWeapon();
+          return;
+        }
         // 技能按钮（优先）
         if (U.dist(e.x, e.y, p.x, p.y) <= p.r + 16) {
           this.game.skillRequest = true;
@@ -510,7 +516,7 @@
       });
 
       const pulse = 0.55 + Math.sin(t * 2.4) * 0.18;
-      text(ctx, '三层 · 九庭主 · 二十兵刃 · 机制被动', 480, 330, {
+      text(ctx, '三层 · 每层五关 · 九庭主 · 二十九兵刃', 480, 330, {
         size: 12, color: U.rgba(PAL.muted, pulse), align: 'center'
       });
 
@@ -528,16 +534,16 @@
         onClick: () => this.game.toggleMute()
       });
 
-      text(ctx, 'WASD 移动   ·   鼠标瞄准   ·   左键普攻   ·   武器自动开火   ·   空格/右键技能', 480, 508, {
+      text(ctx, 'WASD 移动   ·   鼠标瞄准   ·   左键开火   ·   空格/右键技能   ·   G 丢武器', 480, 508, {
         size: 10, color: PAL.muted, align: 'center'
       });
-      text(ctx, '触屏：左下摇杆移动，右下按钮技能；升级 / 被动 / 商店均可直接点选', 480, 528, {
+      text(ctx, '触屏：左下摇杆移动，右下按钮技能；被动 / 商店 / 丢弃均可直接点选', 480, 528, {
         size: 10, color: 'rgba(109,99,136,.8)', align: 'center'
       });
       text(ctx, 'MIT License · 零依赖 · 程序化像素美术 / WebAudio 音效', 36, 580, {
         size: 9, color: 'rgba(109,99,136,.7)'
       });
-      text(ctx, 'v2.0', 924, 580, { size: 9, color: 'rgba(109,99,136,.7)', align: 'right' });
+      text(ctx, 'v2.1', 924, 580, { size: 9, color: 'rgba(109,99,136,.7)', align: 'right' });
     }
 
     // ── 角色选择 ──────────────────────────────────────────
@@ -697,7 +703,7 @@
       if (floor) {
         const room = game.room;
         const stage = room ? (room.stage || (room.type === 'shop' ? '商' : 1)) : 1;
-        text(ctx, '第 ' + floor.number + ' 层 · 关卡 ' + stage + ' / 3', 480, 20, {
+        text(ctx, '第 ' + floor.number + ' 层 · 关卡 ' + stage + ' / 5', 480, 20, {
           size: 13, color: PAL.gold, align: 'center', bold: true
         });
         if (room) {
@@ -731,7 +737,7 @@
 
       // 桌面操作提示
       if (!game.touchMode) {
-        text(ctx, 'WASD 移动 · 鼠标瞄准 · 左键普攻 · 武器自动开火 · 空格/右键技能 · ESC 暂停', 480, 588, {
+        text(ctx, 'WASD 移动 · 鼠标瞄准 · 左键开火 · 空格/右键技能 · G 丢武器 · ESC 暂停', 480, 588, {
           size: 9, color: 'rgba(207,192,157,.48)', align: 'center'
         });
       } else {
@@ -900,10 +906,27 @@
       });
       const cd = p.weaponCd || 0;
       const maxCd = p._weaponCooldown ? p._weaponCooldown() : 1;
-      bar(ctx, x + 48, y + 28, w - 58, 4, 1 - U.clamp(cd / Math.max(0.01, maxCd), 0, 1), wdef.color, { segments: false });
-      text(ctx, '自动开火 · ' + (Ink.Rarity[wdef.rarity] || {}).name, x + 48, y + 44, {
+      bar(ctx, x + 48, y + 27, w - 108, 4, 1 - U.clamp(cd / Math.max(0.01, maxCd), 0, 1), wdef.color, { segments: false });
+      text(ctx, '威伤 ' + (wdef.damage || 0) + ' · ' + (Ink.Rarity[wdef.rarity] || {}).name, x + 48, y + 43, {
         size: 8, color: 'rgba(207,192,157,.62)'
       });
+
+      // 武器可以主动丢弃；触屏点小按钮，桌面按 G。
+      this.weaponDropRect = null;
+      if (wdef.id !== 'fists') {
+        if (this.game.touchMode) {
+          const dropRect = { x: x + w - 42, y: y + 33, w: 30, h: 16 };
+          this.weaponDropRect = dropRect;
+          this._button(ctx, dropRect, '丢', {
+            size: 9,
+            onClick: () => p.dropWeapon()
+          });
+        } else {
+          text(ctx, 'G 丢弃', x + w - 10, y + 44, {
+            size: 8, color: 'rgba(207,192,157,.42)', align: 'right'
+          });
+        }
+      }
     }
 
     _drawSkillRing(ctx) {
@@ -1106,7 +1129,7 @@
       text(ctx, '机 缘 三 选', 480, 110, {
         size: 26, color: PAL.gold, align: 'center', bold: true
       });
-      text(ctx, '每层第 2 关后，从三条机制里选一条 · 数字键 1 / 2 / 3', 480, 140, {
+      text(ctx, '每层第 2、4 关后，从三条机制里选一条 · 数字键 1 / 2 / 3', 480, 140, {
         size: 11, color: PAL.muted, align: 'center'
       });
 
@@ -1145,8 +1168,8 @@
         text(ctx, '机 制 · 被 动', x + cw / 2, y + 150, {
           size: 9, color: PAL.muted, align: 'center'
         });
-        wrapped(ctx, def.desc, x + 18, y + 172, cw - 36, {
-          size: 10, color: PAL.parchment2, lineHeight: 15, align: 'left', maxLines: 4
+        wrapped(ctx, def.desc, x + cw / 2, y + 172, cw - 40, {
+          size: 10, color: PAL.parchment2, lineHeight: 15, align: 'center', maxLines: 4
         });
         this._button(ctx, { x: x + 34, y: y + 244, w: cw - 68, h: 30 }, '选 择', {
           size: 12, selected: true, onClick: () => this.game.choosePassive(def.id)
@@ -1206,11 +1229,11 @@
         text(ctx, def.name, x + cw / 2, y + 118, {
           size: 19, color: def.color, align: 'center', bold: true
         });
-        text(ctx, rarity.name, x + cw / 2, y + 142, {
+        text(ctx, rarity.name + ' · 威伤 ' + def.damage, x + cw / 2, y + 142, {
           size: 9, color: rarity.color, align: 'center'
         });
-        wrapped(ctx, def.desc, x + 18, y + 166, cw - 36, {
-          size: 9, color: PAL.parchment2, lineHeight: 14, align: 'left', maxLines: 3
+        wrapped(ctx, def.desc, x + cw / 2, y + 166, cw - 40, {
+          size: 9, color: PAL.parchment2, lineHeight: 14, align: 'center', maxLines: 3
         });
 
         if (offer.sold) {
@@ -1274,13 +1297,13 @@
         onClick: () => this.game.toTitle()
       });
 
-      text(ctx, 'WASD 移动 · 鼠标瞄准 · 左键普攻 / 武器自动开火', 480, 414, {
+      text(ctx, 'WASD 移动 · 鼠标瞄准 · 左键开火 · G 丢武器', 480, 414, {
         size: 9, color: PAL.muted, align: 'center'
       });
       text(ctx, '空格 / 右键主动技能 · ESC 继续', 480, 434, {
         size: 9, color: PAL.muted, align: 'center'
       });
-      text(ctx, '提示：清空关卡 1、2 的敌人，庭主门才会解封。', 480, 478, {
+      text(ctx, '提示：清空关卡 1–4 的敌人，庭主门才会解封。', 480, 478, {
         size: 9, color: 'rgba(232,193,112,.55)', align: 'center'
       });
     }
@@ -1402,8 +1425,8 @@
           lines: [
             'W A S D / 方向键：移动',
             '鼠标：瞄准方向',
-            '鼠标左键 / J：普通攻击',
-            '武器：获得后自动开火',
+            '鼠标左键 / J：手中武器开火',
+            'G：丢下当前武器（可捡回）',
             '空格 / 鼠标右键 / E：主动技能',
             'ESC / P：暂停 · 1 2 3 选择'
           ]
@@ -1414,7 +1437,8 @@
             '左下虚拟摇杆：移动',
             '右下技能按钮：释放主动技能',
             '自动锁定最近敌人并开火',
-            '升级 / 被动 / 商店：直接点选',
+            '被动 / 商店：直接点选',
+            '武器卡“丢”钮：丢弃当前武器',
             '点击右上角 Ⅱ 暂停',
             '横屏游玩体验更佳'
           ]
@@ -1422,10 +1446,10 @@
         {
           x: 644, title: '局内循环',
           lines: [
-            '每层 3 关：战斗 → 精英 → 庭主',
-            '第 2 关结束：机制被动三选一',
-            '第 2 关后开启行商，金币 / 生命换武器',
-            '击败庭主，随机武器入手并开传送门',
+            '每层 5 关 · 第 5 关为庭主',
+            '第 2、4 关后：机制被动三选一',
+            '精英关旁：行商换武器',
+            '庭主掉落专属武器',
             '九位庭主分三层，强度逐层提升',
             '三层通关即为胜利'
           ]
