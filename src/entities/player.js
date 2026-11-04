@@ -1,0 +1,706 @@
+/**
+ * src/entities/player.js
+ * ------------------------------------------------------------
+ * 玩家实体：移动、瞄准、普攻、技能冷却、生命/护甲、经验与升级。
+ * 角色差异全部委托给 player.char（角色实例）处理。
+ *
+ * 关键约定：
+ *   - 桌面：WASD 移动，鼠标瞄准，左键普攻，空格 / 右键主动技能。
+ *   - 触屏：game.touchMode = true，自动锁定最近敌人并自动开火；
+ *           移动与技能由 game 的虚拟摇杆 / 按钮设置。
+ */
+(function () {
+  'use strict';
+
+  const Ink = window.Ink;
+  const U = Ink.U;
+  const PAL = Ink.PAL;
+
+  class Player {
+    constructor(game, charId) {
+      this.game = game;
+      this.charId = charId;
+      this.def = Ink.Characters[charId];
+      if (!this.def) throw new Error('未知角色: ' + charId);
+      this.char = Ink.createCharacter(charId, this, game);
+
+      this.x = Ink.ARENA.x + Ink.ARENA.w / 2;
+      this.y = Ink.ARENA.y + Ink.ARENA.h / 2 + 40;
+      this.radius = 14;
+      this.facing = 1;
+      this.aimAngle = -Math.PI / 2;
+      this.dead = false;
+      this.hitFlash = 0;
+      this.invuln = 1.0;
+      this.walkTime = 0;
+      this.time = 0;
+
+      // 面板基础值
+      this.baseMaxHp = this.def.hp;
+      this.baseArmor = this.def.armor;
+      this.baseSpeed = this.def.speed;
+      this.baseDamage = this.def.damage;
+      this.baseAtkInterval = this.def.atkInterval;
+      this.baseCooldown = this.def.cooldown;
+
+      this.level = 1;
+      this.xp = 0;
+      this.xpNext = 10;
+      this.upgrades = { damage: 0, atkSpeed: 0, cooldown: 0, speed: 0, survival: 0 };
+
+      this.maxHp = this.baseMaxHp;
+      this.hp = this.maxHp;
+      this.maxArmor = this.baseArmor;
+      this.armor = this.maxArmor;
+      this.armorRegenTimer = 0;
+      this.speed = this.baseSpeed;
+      this.damage = this.baseDamage;
+      this.atkInterval = this.baseAtkInterval;
+      this.atkCd = 0;
+      this.critChance = 0.08;
+
+      this.skillCdMax = this.baseCooldown;
+      this.skillCd = 0;
+      this.slowTimer = 0;
+      this.slowMult = 1;
+
+      // ── 武器 / 局内资源 / 机制被动 ──────────────────────
+      this.weaponId = 'flintlock';
+      this.weaponCd = 0;
+      this.weaponCdMax = this.weapon ? this.weapon.cooldown : 1;
+      this.coins = 0;
+      this.passives = [];
+      this.bonusBounce = 0;
+      this.wallBounce = 0;
+      this.thorn = 0;
+      this.leech = 0;
+      this.pickupRadius = 34;
+      this.frostHits = false;
+      this.emberHits = false;
+      this.nova = false;
+      this.critBurst = false;
+      this.overcharge = false;
+      this.overchargeHits = 0;
+      this.coinMult = 1;
+      this.lastStand = false;
+
+      this._prevRight = false;
+      this.char.onSpawn();
+    }
+
+    get weapon() {
+      return Ink.WeaponDefs ? Ink.WeaponDefs[this.weaponId] : null;
+    }
+
+    // ── 属性与升级 ────────────────────────────────────────
+    recomputeStats(healDelta = false) {
+      const surv = this.upgrades.survival;
+      const oldMax = this.maxHp;
+      const oldArmorMax = this.maxArmor;
+
+      this.maxHp = Math.round(this.baseMaxHp * (1 + 0.12 * surv));
+      this.maxArmor = Math.round(this.baseArmor + surv * 2);
+      this.speed = this.baseSpeed * (1 + 0.07 * this.upgrades.speed);
+      this.damage = this.baseDamage * (1 + 0.18 * this.upgrades.damage);
+      this.atkInterval = this.baseAtkInterval / (1 + 0.14 * this.upgrades.atkSpeed);
+      this.skillCdMax = this.baseCooldown * Math.max(0.55, 1 - 0.1 * this.upgrades.cooldown);
+
+      if (healDelta) this.hp = Math.min(this.maxHp, this.hp + (this.maxHp - oldMax));
+      this.hp = Math.min(this.hp, this.maxHp);
+      if (this.maxArmor > oldArmorMax) this.armor = Math.min(this.maxArmor, this.armor + (this.maxArmor - oldArmorMax));
+      this.armor = Math.min(this.armor, this.maxArmor);
+      this.skillCd = Math.min(this.skillCd, this.skillCdMax);
+    }
+
+    applyUpgrade(kind) {
+      if (!(kind in this.upgrades)) return;
+      this.upgrades[kind]++;
+      const levelUp = kind === 'survival';
+      this.recomputeStats(levelUp);
+      if (levelUp) {
+        this.heal(this.maxHp * 0.18);
+        this.addArmor(2);
+      } else {
+        this.heal(this.maxHp * 0.05);
+      }
+      this.game.audio.sfx('levelup');
+    }
+
+    // ── 武器 / 被动 / 金币 ──────────────────────────────
+    equipWeapon(id) {
+      const def = Ink.WeaponDefs && Ink.WeaponDefs[id];
+      if (!def) return false;
+      this.weaponId = id;
+      this.weaponCdMax = def.cooldown;
+      this.weaponCd = Math.min(this.weaponCd, 0.25);
+      if (this.game && this.game.ui) {
+        this.game.ui.showToast('获得武器 · ' + def.name, def.color || '#e8c170', 2.2);
+      }
+      if (this.game && this.game.audio) this.game.audio.sfx('skillReady');
+      return true;
+    }
+
+    hasPassive(id) {
+      return this.passives.indexOf(id) !== -1;
+    }
+
+    applyPassive(id) {
+      if (this.hasPassive(id)) return false;
+      const def = Ink.Passives && Ink.Passives[id];
+      if (!def) return false;
+      this.passives.push(id);
+      if (typeof def.apply === 'function') def.apply(this);
+      return true;
+    }
+
+    addCoins(amount) {
+      if (!amount) return;
+      if (amount < 0) {
+        this.coins = Math.max(0, this.coins + amount);
+        return;
+      }
+      const gain = Math.max(1, Math.round(amount * this.coinMult));
+      this.coins += gain;
+      Ink.FX.text(this.game, '+' + gain + ' 金币', this.x, this.y - 38, '#ffd36b', 12, 0.8);
+      this.game.audio.sfx('pickup');
+    }
+
+    damageMultiplier() {
+      if (this.lastStand && this.hp < this.maxHp * 0.35) return 1.3;
+      return 1;
+    }
+
+    _weaponCooldown() {
+      return this.weaponCdMax / (1 + 0.10 * this.upgrades.atkSpeed);
+    }
+
+    updateWeapon(dt) {
+      this.weaponCd = Math.max(0, this.weaponCd - dt);
+      if (this.dead || this.weaponCd > 0) return;
+      if (!this.wantFire()) return;
+      this.fireWeapon();
+    }
+
+    fireWeapon() {
+      const def = this.weapon;
+      if (!def) return false;
+      const shots = def.shots || 1;
+      const spread = def.spread || 0;
+      for (let i = 0; i < shots; i++) {
+        const t = shots === 1 ? 0 : (i / (shots - 1)) - 0.5;
+        this.weaponShot({
+          angleOffset: t * spread,
+          speed: def.speed,
+          radius: def.radius,
+          life: def.life,
+          pierce: def.pierce,
+          knockback: def.knockback,
+          visual: def.visual,
+          color: def.color,
+          scale: def.scale,
+          trail: def.trail,
+          glow: def.glow,
+          homing: def.homing,
+          bounce: def.bounce,
+          slow: def.slow,
+          burn: def.burn,
+          ink: def.ink,
+          explode: def.explode,
+          explodeMult: def.explodeMult,
+          def
+        });
+      }
+      this.weaponCd = this._weaponCooldown();
+      this.weaponCdMax = def.cooldown;
+      this.game.audio.sfx(def.sfx || 'shoot');
+      return true;
+    }
+
+    weaponShot(opts) {
+      const def = opts.def || {};
+      const crit = Math.random() < this.critChance;
+      const angle = this.aimAngle + (opts.angleOffset || 0);
+      const px = this.x + Math.cos(angle) * 20;
+      const py = this.y + Math.sin(angle) * 20 - 2;
+      const self = this;
+      const dmg = this.damage * (def.damageMult || 1) *
+        (crit ? 1.65 : 1) * this.damageMultiplier();
+      const proj = Ink.fire(this.game, {
+        x: px, y: py, angle,
+        speed: opts.speed || 600,
+        damage: dmg,
+        radius: opts.radius || 5,
+        color: opts.color || '#e8c170',
+        owner: 'player',
+        source: this,
+        sourceKey: 'weapon',
+        visual: opts.visual || 'orb',
+        pierce: opts.pierce || 0,
+        life: opts.life || 1.4,
+        homing: opts.homing || 0,
+        homingTarget: this.nearestEnemy(420),
+        trail: opts.trail,
+        glow: opts.glow,
+        scale: opts.scale || 1,
+        knockback: opts.knockback || 0,
+        crit,
+        bounce: opts.bounce || this.bonusBounce,
+        wallBounce: this.wallBounce,
+        onHit: (game, enemy, projectile) => {
+          self.onWeaponHit(enemy, projectile, opts);
+        },
+        onExpire: (game, projectile) => {
+          if (opts.explode && !projectile._exploded) self.weaponExplode(projectile, opts);
+        }
+      });
+      Ink.FX.burst(this.game, px, py, opts.color || '#e8c170', 3, 60, { size: 2, lifeMult: 0.45 });
+      return proj;
+    }
+
+    onWeaponHit(enemy, proj, opts) {
+      this.applyHitPassives(enemy, opts);
+      if (opts.ink && enemy.applyInkStack) enemy.applyInkStack();
+      if (opts.slow && enemy.applySlow) enemy.applySlow(opts.slow[0], opts.slow[1]);
+      if (opts.burn && enemy.applyBurn) enemy.applyBurn(opts.burn[0], opts.burn[1]);
+      if (opts.explode && !proj._exploded) this.weaponExplode(proj, opts);
+      if (this.overcharge) {
+        this.overchargeHits++;
+        if (this.overchargeHits % 8 === 0) this.chainLightning(enemy);
+      }
+      if (!enemy.dead && this.char.onBasicHit) this.char.onBasicHit(enemy, proj);
+    }
+
+    applyHitPassives(enemy) {
+      if (!enemy) return;
+      if (this.frostHits && enemy.applySlow) enemy.applySlow(0.65, 1.4);
+      if (this.emberHits && enemy.applyBurn) enemy.applyBurn(2.0, 2.0);
+    }
+
+    weaponExplode(proj, opts) {
+      proj._exploded = true;
+      const radius = opts.explode || 60;
+      const mult = opts.explodeMult || 0.6;
+      Ink.FX.explosion(this.game, proj.x, proj.y, radius, opts.color || '#ffb35c');
+      Ink.FX.ring(this.game, {
+        x: proj.x, y: proj.y, r0: 8, r1: radius, life: 0.32,
+        color: opts.color || '#ffb35c', width: 3
+      });
+      this.game.addShake(3, 0.12);
+      this.game.audio.sfx('explosion');
+      for (const e of this.game.enemies.slice()) {
+        if (e.dead || e.spawnTimer > 0) continue;
+        if (U.dist(proj.x, proj.y, e.x, e.y) > radius + e.radius) continue;
+        this.game.damageEnemy(e, this.damage * mult * this.damageMultiplier(), {
+          source: 'weapon', color: opts.color || '#ffb35c', crit: false
+        });
+      }
+    }
+
+    chainLightning(from) {
+      const targets = this.game.enemies
+        .filter((e) => !e.dead && e !== from)
+        .sort((a, b) => U.dist2(from.x, from.y, a.x, a.y) - U.dist2(from.x, from.y, b.x, b.y))
+        .slice(0, 3);
+      let prev = from;
+      for (const e of targets) {
+        const a = U.angleTo(prev, e);
+        Ink.FX.beam(this.game, {
+          x: prev.x, y: prev.y, angle: a,
+          length: U.dist(prev.x, prev.y, e.x, e.y),
+          color: '#f4d76a', width: 2, warn: 0, active: 0.22, damage: 0
+        });
+        this.game.damageEnemy(e, this.damage * 0.45, {
+          source: 'passive', sourceKey: 'overcharge', color: '#f4d76a'
+        });
+        prev = e;
+      }
+      if (targets.length) {
+        Ink.FX.text(this.game, '超载', this.x, this.y - 46, '#f4d76a', 13, 0.7);
+        this.game.audio.sfx('crit');
+      }
+    }
+
+    gainXp(amount) {
+      if (amount <= 0) return;
+      this.xp += amount;
+      while (this.xp >= this.xpNext) {
+        this.xp -= this.xpNext;
+        this.level++;
+        this.xpNext = Math.round(10 + (this.level - 1) * 8 + Math.pow(this.level, 1.25) * 2);
+        this.hp = Math.min(this.maxHp, this.hp + 8);
+        this.game.onPlayerLevelUp(this.level);
+      }
+    }
+
+    // ── 每帧 ──────────────────────────────────────────────
+    update(dt) {
+      if (this.dead) return;
+      this.time += dt;
+      this.hitFlash = Math.max(0, this.hitFlash - dt);
+      this.invuln = Math.max(0, this.invuln - dt);
+      this.atkCd = Math.max(0, this.atkCd - dt);
+      this.skillCd = Math.max(0, this.skillCd - dt);
+      this.slowTimer = Math.max(0, this.slowTimer - dt);
+
+      // 护甲回复：脱战 4.5 秒后每秒回复 1.5 点
+      if (this.armorRegenTimer > 0) {
+        this.armorRegenTimer -= dt;
+      } else if (this.armor < this.maxArmor) {
+        this.armor = Math.min(this.maxArmor, this.armor + 1.5 * dt);
+      }
+
+      // 主动技能输入（桌面空格 / 右键；触屏由 game 设置 skillRequest）
+      if (this.game.skillRequest) {
+        this.game.skillRequest = false;
+        this.tryUseSkill();
+      }
+      const input = this.game.input;
+      if (input.wasPressed('Space', 'KeyE')) this.tryUseSkill();
+      const rightNow = input.mouse.right;
+      if (rightNow && !this._prevRight) this.tryUseSkill();
+      this._prevRight = rightNow;
+
+      // 移动
+      const mv = this.game.getMoveVector();
+      const sp = this.speed * (this.slowTimer > 0 ? this.slowMult : 1);
+      if (mv.x !== 0 || mv.y !== 0) {
+        this.x += mv.x * sp * dt;
+        this.y += mv.y * sp * dt;
+        this.walkTime += dt;
+        if (!this.game.touchMode) this.facing = mv.x >= 0 ? 1 : -1;
+      } else {
+        this.walkTime += dt * 0.35;
+      }
+
+      // 瞄准
+      this.updateAim();
+
+      const A = Ink.ARENA;
+      this.x = U.clamp(this.x, A.x + this.radius + 4, A.x + A.w - this.radius - 4);
+      this.y = U.clamp(this.y, A.y + this.radius + 4, A.y + A.h - this.radius - 4);
+
+      this.char.update(dt);
+
+      // 普攻
+      if (this.wantFire()) {
+        if (this.atkCd <= 0) {
+          if (this.char.basicAttack()) {
+            this.atkCd = this.atkInterval;
+          }
+        }
+      }
+
+      // 武器独立冷却；与角色普攻叠加，形成“角色 + 武器”的输出层次
+      this.updateWeapon(dt);
+    }
+
+    updateAim() {
+      const input = this.game.input;
+      const target = this.nearestEnemy();
+      if (this.game.touchMode) {
+        if (target) {
+          this.aimAngle = U.angleTo(this, target);
+          this.facing = target.x < this.x ? -1 : 1;
+        }
+      } else if (input.mouse.inside) {
+        this.aimAngle = U.angleTo(this, input.mouse);
+        this.facing = input.mouse.x < this.x ? -1 : 1;
+      } else if (target) {
+        this.aimAngle = U.angleTo(this, target);
+      }
+    }
+
+    nearestEnemy(maxDist = 760) {
+      let best = null;
+      let bestD = maxDist;
+      for (const e of this.game.enemies) {
+        if (e.dead || e.spawnTimer > 0) continue;
+        const d = U.dist(this.x, this.y, e.x, e.y);
+        if (d < bestD) { bestD = d; best = e; }
+      }
+      return best;
+    }
+
+    getAimPoint() {
+      const input = this.game.input;
+      if (!this.game.touchMode && input.mouse.inside) {
+        return { x: input.mouse.x, y: input.mouse.y };
+      }
+      const target = this.nearestEnemy(620);
+      if (target) return { x: target.x, y: target.y };
+      return {
+        x: this.x + Math.cos(this.aimAngle) * 220,
+        y: this.y + Math.sin(this.aimAngle) * 220
+      };
+    }
+
+    wantFire() {
+      const input = this.game.input;
+      if (this.game.touchMode) {
+        const target = this.nearestEnemy(this.def.range + 30);
+        return !!target;
+      }
+      return input.mouse.down || input.isDown('KeyJ');
+    }
+
+    // ── 攻击 ──────────────────────────────────────────────
+    fireBasic(opts) {
+      const crit = Math.random() < this.critChance;
+      const mult = (opts.damageMult || 1) * (crit ? 1.65 : 1) * this.damageMultiplier();
+      const angle = this.aimAngle + (opts.angleOffset || 0);
+      const speed = opts.speed || 540;
+      const px = this.x + Math.cos(angle) * 18;
+      const py = this.y + Math.sin(angle) * 18 - 2;
+      const self = this;
+
+      Ink.fire(this.game, {
+        x: px, y: py, angle,
+        speed,
+        damage: this.damage * mult,
+        radius: opts.radius || 5,
+        color: opts.color || PAL.gold,
+        owner: 'player',
+        source: this,
+        sourceKey: 'basic',
+        visual: opts.visual || 'orb',
+        pierce: opts.pierce || 0,
+        life: opts.life || 1.6,
+        homing: opts.homing,
+        homingTarget: opts.homingTarget,
+        homingDelay: opts.homingDelay,
+        trail: opts.trail,
+        glow: opts.glow,
+        scale: opts.scale || 1,
+        knockback: opts.knockback || 0,
+        crit,
+        bounce: this.bonusBounce,
+        wallBounce: this.wallBounce,
+        onHit: (game, enemy, proj) => {
+          self.applyHitPassives(enemy);
+          if (self.critBurst && crit) self.critExplode(enemy);
+          self.char.onBasicHit(enemy, proj);
+        }
+      });
+      Ink.FX.burst(this.game, px, py, opts.color || PAL.gold, crit ? 5 : 3, 70, { size: 2, lifeMult: 0.5 });
+      if (crit) this.game.audio.sfx('crit');
+      return true;
+    }
+
+    critExplode(enemy) {
+      if (!enemy) return;
+      const radius = 54;
+      Ink.FX.ring(this.game, {
+        x: enemy.x, y: enemy.y, r0: 4, r1: radius, life: 0.25,
+        color: '#ffb35c', width: 2
+      });
+      for (const e of this.game.enemies.slice()) {
+        if (e.dead || e === enemy || e.spawnTimer > 0) continue;
+        if (U.dist(enemy.x, enemy.y, e.x, e.y) > radius + e.radius) continue;
+        this.game.damageEnemy(e, this.damage * 0.5, {
+          source: 'passive', sourceKey: 'critburst', color: '#ffb35c'
+        });
+      }
+    }
+
+    melee(opts) {
+      const angle = this.aimAngle + (opts.angleOffset || 0);
+      const range = opts.range || 80;
+      const arc = opts.arc || 1.4;
+      const critCount = Math.random() < this.critChance;
+      const dmg = this.damage * (opts.damageMult || 1) * (critCount ? 1.65 : 1) * this.damageMultiplier();
+      Ink.FX.slash(this.game, {
+        x: this.x, y: this.y, angle, range, arc,
+        color: opts.color || '#ff8fb3', life: 0.22
+      });
+
+      let hitAny = false;
+      for (const e of this.game.enemies) {
+        if (e.dead) continue;
+        const d = U.dist(this.x, this.y, e.x, e.y);
+        if (d > range + e.radius) continue;
+        const a = U.angleTo(this, e);
+        if (Math.abs(U.angleDiff(a, angle)) > arc / 2) continue;
+        hitAny = true;
+        this.game.damageEnemy(e, dmg, {
+          color: '#ffd0dd', crit: critCount,
+          knockback: opts.knockback || 60, angle
+        });
+        if (!e.dead) {
+          this.applyHitPassives(e);
+          if (this.critBurst && critCount) this.critExplode(e);
+          this.char.onBasicHit(e, null);
+        }
+      }
+      if (hitAny) {
+        this.game.addShake(2, 0.08);
+        this.game.audio.sfx('hit');
+      }
+      return true;
+    }
+
+    // ── 技能 ──────────────────────────────────────────────
+    tryUseSkill() {
+      if (this.dead || this.skillCd > 0) {
+        if (this.skillCd > 0) this.game.audio.sfx('uiBack');
+        return false;
+      }
+      const ok = this.char.useSkill();
+      if (ok) {
+        this.skillCd = this.skillCdMax;
+        this.game.audio.sfx('skill');
+      }
+      return ok;
+    }
+
+    reduceCooldown(seconds) {
+      this.skillCd = Math.max(0, this.skillCd - seconds);
+    }
+
+    skillReady() { return this.skillCd <= 0; }
+    skillRatio() { return this.skillCdMax > 0 ? U.clamp(this.skillCd / this.skillCdMax, 0, 1) : 0; }
+
+    // ── 生命 / 护甲 ───────────────────────────────────────
+    addArmor(amount) {
+      if (amount <= 0 || this.dead) return;
+      const before = this.armor;
+      this.armor = Math.min(this.maxArmor, this.armor + amount);
+      const gained = this.armor - before;
+      if (gained > 0.5) this.game.audio.sfx('armor');
+    }
+
+    heal(amount) {
+      if (this.dead || amount <= 0) return;
+      const before = this.hp;
+      this.hp = Math.min(this.maxHp, this.hp + amount);
+      if (this.hp - before > 0.5) {
+        Ink.FX.text(this.game, '+' + Math.round(this.hp - before), this.x, this.y - 30, '#7fe3d2', 12, 0.7);
+      }
+    }
+
+    applySlow(mult, duration) {
+      this.slowMult = Math.min(this.slowMult, mult);
+      this.slowTimer = Math.max(this.slowTimer, duration);
+    }
+
+    takeDamage(amount, source) {
+      if (this.dead || this.invuln > 0) return;
+      amount = Math.max(1, Math.round(amount));
+      this.invuln = 0.6;
+      this.hitFlash = 0.12;
+      this.armorRegenTimer = 4.5;
+      this.game.addShake(4, 0.16);
+
+      let remaining = amount;
+      if (this.armor > 0) {
+        const absorbed = Math.min(this.armor, remaining);
+        this.armor = Math.max(0, this.armor - absorbed);
+        remaining -= absorbed;
+        Ink.FX.text(this.game, '护甲 -' + Math.round(absorbed), this.x, this.y - 30, '#9fe8ff', 12, 0.7);
+      }
+      if (remaining > 0) {
+        this.hp = Math.max(0, this.hp - remaining);
+        Ink.FX.damageNumber(this.game, this.x, this.y - 20, Math.round(remaining), '#ff7d7d', false);
+      }
+      Ink.FX.hit(this.game, this.x, this.y, U.rand(0, U.TAU), '#ff7d7d', true);
+      this.game.audio.sfx(remaining > 0 ? 'hurt' : 'armor');
+
+      // 荆棘皮：只反弹给能受伤的实体，避免把投射物当敌人
+      if (this.thorn > 0 && source && source.takeDamage && !source.dead) {
+        this.game.damageEnemy(source, amount * this.thorn, {
+          source: 'passive', sourceKey: 'thorn', color: '#b6e08a'
+        });
+      }
+
+      if (this.hp <= 0) this.die();
+    }
+
+    die() {
+      if (this.dead) return;
+      this.dead = true;
+      Ink.FX.burst(this.game, this.x, this.y, ['#ff7d7d', '#e8c170', '#fff6e7'], 34, 220, {
+        size: 4, gravity: 50, lifeMult: 1.4
+      });
+      Ink.FX.ring(this.game, { x: this.x, y: this.y, r0: 8, r1: 90, life: 0.7, color: '#ff7d7d', width: 4 });
+      this.game.audio.sfx('gameover');
+      this.game.addShake(10, 0.7);
+      this.game.onPlayerDeath();
+    }
+
+    onRoomEnter() {
+      this.char.onRoomEnter();
+      this.invuln = Math.max(this.invuln, 0.6);
+    }
+
+    // ── 绘制 ──────────────────────────────────────────────
+    draw(ctx, game) {
+      if (this.dead) return;
+      this.char.drawWorld(ctx, game);
+
+      const walking = Math.abs(this.game.getMoveVector().x) + Math.abs(this.game.getMoveVector().y) > 0;
+      const frame = walking ? (Math.floor(this.walkTime * 8) % 2) : 0;
+      const bob = walking ? Math.sin(this.walkTime * 9) * 1.5 : Math.sin(this.time * 2.4) * 0.8;
+      const blink = this.invuln > 0 && Math.floor(this.invuln * 16) % 2 === 0;
+
+      // 影子
+      ctx.save();
+      ctx.globalAlpha = 0.38;
+      ctx.fillStyle = '#050409';
+      ctx.beginPath();
+      ctx.ellipse(this.x, this.y + 18, 15, 5, 0, 0, U.TAU);
+      ctx.fill();
+      ctx.restore();
+
+      // 护甲护盾
+      if (this.armor > 0) {
+        ctx.save();
+        ctx.globalAlpha = 0.16 + (this.armor / Math.max(1, this.maxArmor)) * 0.14;
+        ctx.strokeStyle = '#9fe8ff';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y - 2, 22 + Math.sin(this.time * 3) * 1.5, 0, U.TAU);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      Ink.Art.drawSprite(ctx, 'char:' + this.charId, this.x, this.y + bob, 3, {
+        frame,
+        flip: this.facing < 0,
+        alpha: blink ? 0.55 : 1
+      });
+      if (this.hitFlash > 0) {
+        Ink.Art.drawSprite(ctx, 'char:' + this.charId, this.x, this.y + bob, 3, {
+          frame, flip: this.facing < 0, alpha: 0.5, tint: '#ffffff'
+        });
+      }
+
+      // 瞄准短线（桌面）
+      if (!game.touchMode && game.input.mouse.inside) {
+        ctx.save();
+        ctx.globalAlpha = 0.35;
+        ctx.strokeStyle = this.def.accent || PAL.gold;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(this.x + Math.cos(this.aimAngle) * 22, this.y + Math.sin(this.aimAngle) * 22 - 2);
+        ctx.lineTo(this.x + Math.cos(this.aimAngle) * 40, this.y + Math.sin(this.aimAngle) * 40 - 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // 蓄力 / 技能就绪的脚下光环
+      if (this.skillCd <= 0) {
+        ctx.save();
+        ctx.globalAlpha = 0.22 + Math.sin(this.time * 4) * 0.08;
+        ctx.strokeStyle = this.def.accent || PAL.gold;
+        ctx.lineWidth = 1;
+        ctx.setLineDash([3, 5]);
+        ctx.lineDashOffset = -this.time * 12;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y + 14, 20, 0, U.TAU);
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+  }
+
+  Ink.Player = Player;
+})();

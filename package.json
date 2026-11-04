@@ -1,0 +1,12 @@
+{
+  "name": "court-of-five-trees",
+  "version": "2.0.0",
+  "private": false,
+  "description": "庭有五棵树 — 零依赖 HTML5 Canvas 像素地牢肉鸽游戏",
+  "license": "MIT",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": ["game", "html5", "canvas", "roguelike", "pixel-art", "zero-dependency"],
+  "engines": { "node": ">=18" }
+}

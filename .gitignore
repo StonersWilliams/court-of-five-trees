@@ -1,0 +1,7 @@
+# 运行时/编辑器
+node_modules/
+*.log
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

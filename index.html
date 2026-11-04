@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+  <meta name="theme-color" content="#0b0a12">
+  <meta name="description" content="庭有五棵树 — 零依赖 HTML5 像素地牢肉鸽。五名角色、三层九庭主、二十柄武器、程序化像素美术与 WebAudio 音效。">
+  <title>庭有五棵树 · Court of Five Trees</title>
+  <style>
+    :root {
+      --ink: #0b0a12;
+      --stage-ratio: 1.6; /* 960 / 600 */
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; padding: 0; height: 100%; overflow: hidden;
+      background: #05050a; color: #f3e7c9;
+      font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", sans-serif;
+      overscroll-behavior: none;
+    }
+    body {
+      display: flex; align-items: center; justify-content: center;
+      background:
+        radial-gradient(circle at 50% 35%, #171126 0%, #08070d 58%, #030308 100%);
+      -webkit-user-select: none; user-select: none;
+      touch-action: none;
+    }
+    /* 画面固定 960x600 逻辑分辨率，等比放大，保持像素边缘 */
+    #stage {
+      position: relative;
+      width: min(100vw, calc(100vh * var(--stage-ratio)));
+      height: min(100vh, calc(100vw / var(--stage-ratio)));
+      display: flex; align-items: center; justify-content: center;
+    }
+    #game {
+      display: block;
+      width: 100%; height: 100%;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      touch-action: none;
+      cursor: crosshair;
+      outline: none;
+      box-shadow: 0 0 0 1px #241d35, 0 30px 90px rgba(0,0,0,.8);
+    }
+    #boot {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 14px; pointer-events: none; color: #8b7ba8; letter-spacing: .18em;
+      font-size: clamp(10px, 1.4vw, 15px); text-transform: uppercase;
+      transition: opacity .35s ease;
+    }
+    #boot.hidden { opacity: 0; }
+    #boot .seal {
+      width: 46px; height: 46px; border: 2px solid #6d4f8f;
+      display: grid; place-items: center; color: #e8c170; font-size: 22px;
+      box-shadow: inset 0 0 0 4px #0b0a12, 0 0 24px #6d4f8f55;
+      animation: pulse 1.8s ease-in-out infinite;
+    }
+    @keyframes pulse { 50% { box-shadow: inset 0 0 0 4px #0b0a12, 0 0 38px #6d4f8f88; } }
+    #rotate-hint { display: none; }
+    @media (orientation: portrait) and (max-width: 900px) {
+      #rotate-hint {
+        display: block; position: fixed; left: 50%; bottom: max(10px, env(safe-area-inset-bottom));
+        transform: translateX(-50%); z-index: 5; pointer-events: none;
+        color: rgba(232,193,112,.62); font-size: 10px; letter-spacing: .2em;
+        text-shadow: 0 1px 4px #000;
+      }
+    }
+    .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <canvas id="game" width="960" height="600" tabindex="0"
+      aria-label="庭有五棵树，像素地牢游戏。使用 WASD 移动，鼠标瞄准，左键攻击，空格释放技能。"></canvas>
+    <div id="boot"><div class="seal">树</div><div>正在展卷…</div></div>
+  </div>
+  <div id="rotate-hint">横 屏 游 玩 体 验 更 佳</div>
+  <noscript>本游戏需要启用 JavaScript。</noscript>
+
+  <!-- 零构建、零依赖：传统 script 顺序加载，因此 file:// 双击也可直接运行。 -->
+  <script src="src/core/utils.js"></script>
+  <script src="src/core/pixelart.js"></script>
+  <script src="src/core/audio.js"></script>
+  <script src="src/core/input.js"></script>
+  <script src="src/core/effects.js"></script>
+  <script src="src/core/passives.js"></script>
+  <script src="src/entities/projectile.js"></script>
+  <script src="src/entities/weapon.js"></script>
+  <script src="src/entities/enemy.js"></script>
+  <script src="src/entities/boss.js"></script>
+  <script src="src/entities/dog.js"></script>
+  <script src="src/entities/player.js"></script>
+  <script src="src/characters/characters.js"></script>
+  <script src="src/characters/qiyun.js"></script>
+  <script src="src/characters/xiaoying.js"></script>
+  <script src="src/characters/xinyue.js"></script>
+  <script src="src/characters/ziyu.js"></script>
+  <script src="src/characters/smartdog.js"></script>
+  <script src="src/dungeon/dungeon.js"></script>
+  <script src="src/ui/ui.js"></script>
+  <script src="src/game.js"></script>
+  <script src="src/main.js"></script>
+</body>
+</html>
