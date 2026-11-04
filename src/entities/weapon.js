@@ -133,8 +133,8 @@
       life: 1.4, pierce: 2, knockback: 45,
       desc: '两片巨刃交错。修剪枝条，也修剪来客。'
     },
-    ninesun: {
-      id: 'ninesun', name: '九阳火铳', rarity: 'epic', price: 40,
+    ninegun: {
+      id: 'ninegun', name: '九阳火铳', rarity: 'epic', price: 40,
       color: '#ff8a4c', visual: 'orb', icon: 'gun', cooldown: 0.56,
       damageMult: 0.74, shots: 3, spread: 0.24, speed: 580, radius: 5,
       life: 1.5, burn: [2.2, 5], knockback: 25, glow: true,
@@ -176,7 +176,7 @@
     flintlock: 24, ironbolt: 16, twin: 15, sling: 11, pinecone: 30,
     bees: 8, spear: 22, frostbow: 20, flowerstaff: 11, thunder: 26,
     inkmaw: 7, boneflute: 10, sunrepeater: 9, echo: 17, shears: 19,
-    ninesun: 17, reaper: 44, towerbomb: 48, peachwand: 9, lantern: 16
+    ninegun: 17, reaper: 44, towerbomb: 48, peachwand: 9, lantern: 16
   };
   for (const id of Object.keys(DEFS)) {
     const d = DEFS[id];
