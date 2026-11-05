@@ -505,8 +505,8 @@
     // ── 机制被动三选一（每层第 2 关后） ─────────────────
     openPassive() {
       if (!this.player) return;
-      const pool = U.shuffle(Ink.PassiveList.filter((id) => !this.player.hasPassive(id)));
-      this.passiveChoices = pool.slice(0, 3);
+      // 被动允许重复叠加：池子永远不空，不会因“都拿过了”卡住三选一。
+      this.passiveChoices = U.shuffle(Ink.PassiveList.slice()).slice(0, 3);
       this.state = 'passive';
       this.touchMove = { x: 0, y: 0 };
       this.skillRequest = false;
@@ -525,7 +525,8 @@
 
     grantRandomPassive() {
       const p = this.player;
-      const pool = U.shuffle(Ink.PassiveList.filter((id) => !p.hasPassive(id)));
+      // 事件给的机缘也从全池抽取，重复则叠层，保证永远不会空手。
+      const pool = U.shuffle(Ink.PassiveList.slice());
       if (!pool.length) {
         p.heal(p.maxHp * 0.25);
         this.ui.showToast('机缘已尽 · 回复生命', PAL.jade, 1.8);
@@ -1242,6 +1243,23 @@
       if (this.player && this.player.char) this.player.char.onKill(enemy);
       if (this.player && this.player.onWeaponKill) this.player.onWeaponKill(enemy);
       if (this.player && this.player.swift) this.player.swiftTimer = 2.0;
+      // 墨爆：击杀时以尸体为圆心炸开，层数越高范围/伤害越大。
+      if (this.player && this.player.nova) {
+        const p = this.player;
+        const stacks = Math.max(1, p.novaStacks || 1);
+        const radius = 60 + 10 * (stacks - 1);
+        Ink.FX.ring(this, {
+          x: enemy.x, y: enemy.y, r0: 4, r1: radius, life: 0.28,
+          color: '#c9a6ff', width: 2
+        });
+        for (const e of this.enemies.slice()) {
+          if (e.dead || e === enemy || e.spawnTimer > 0) continue;
+          if (U.dist(enemy.x, enemy.y, e.x, e.y) > radius + e.radius) continue;
+          this.damageEnemy(e, p.damage * (0.7 + 0.15 * (stacks - 1)), {
+            source: 'passive', sourceKey: 'nova', color: '#c9a6ff'
+          });
+        }
+      }
       if (opts.boss) {
         this.dropCoin(enemy.x, enemy.y, 24);
       } else if (Math.random() < 0.72) {

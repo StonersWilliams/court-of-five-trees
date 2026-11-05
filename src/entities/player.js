@@ -85,21 +85,33 @@
       this.skillFlash = 0;
       this.coins = 0;
       this.passives = [];
+      this.passiveStacks = {};
       this.bonusBounce = 0;
       this.wallBounce = 0;
       this.thorn = 0;
       this.leech = 0;
       this.pickupRadius = 34;
+      this.bonusPierce = 0;
+      this.bonusHoming = 0;
+      this.armorOnKill = 0;
       this.frostHits = false;
+      this.frostStacks = 0;
       this.emberHits = false;
+      this.emberStacks = 0;
       this.nova = false;
+      this.novaStacks = 0;
       this.critBurst = false;
+      this.critBurstStacks = 0;
       this.overcharge = false;
+      this.overchargeStacks = 0;
       this.overchargeHits = 0;
       this.coinMult = 1;
       this.lastStand = false;
+      this.lastStandStacks = 0;
       this.guardian = false;
+      this.guardianStacks = 0;
       this.swift = false;
+      this.swiftStacks = 0;
       this.swiftTimer = 0;
 
       // 兵器专属节奏：连段、蓄力、变身与临时增益
@@ -204,15 +216,20 @@
     }
 
     hasPassive(id) {
-      return this.passives.indexOf(id) !== -1;
+      return (this.passiveStacks[id] || 0) > 0;
+    }
+
+    passiveStack(id) {
+      return this.passiveStacks[id] || 0;
     }
 
     applyPassive(id) {
-      if (this.hasPassive(id)) return false;
       const def = Ink.Passives && Ink.Passives[id];
       if (!def) return false;
+      // 机制被动可以重复叠加；同名条目记录层数，数值/概率型继续累加。
       this.passives.push(id);
-      if (typeof def.apply === 'function') def.apply(this);
+      this.passiveStacks[id] = (this.passiveStacks[id] || 0) + 1;
+      if (typeof def.apply === 'function') def.apply(this, this.passiveStacks[id]);
       return true;
     }
 
@@ -229,7 +246,9 @@
     }
 
     damageMultiplier() {
-      if (this.lastStand && this.hp < this.maxHp * 0.35) return 1.3;
+      if (this.lastStand && this.hp < this.maxHp * 0.35) {
+        return Math.min(1.65, 1.3 + 0.1 * Math.max(0, this.lastStandStacks - 1));
+      }
       return 1;
     }
 
@@ -351,9 +370,9 @@
         source: this,
         sourceKey: 'weapon',
         visual: opts.visual || 'orb',
-        pierce: opts.pierce || 0,
+        pierce: (opts.pierce || 0) + this.bonusPierce,
         life: opts.life || 1.4,
-        homing: opts.homing || 0,
+        homing: (opts.homing || 0) + this.bonusHoming,
         homingTarget: this.nearestEnemy(420),
         trail: opts.trail,
         glow: opts.glow,
@@ -702,15 +721,21 @@
       if (opts.explode && !proj._exploded) this.weaponExplode(proj, opts);
       if (this.overcharge) {
         this.overchargeHits++;
-        if (this.overchargeHits % 8 === 0) this.chainLightning(enemy);
+        // 叠加超载会降低触发间隔，最低 4 次命中一次。
+        const need = Math.max(4, 8 - (this.overchargeStacks - 1));
+        if (this.overchargeHits % need === 0) this.chainLightning(enemy);
       }
       if (!enemy.dead && this.char.onBasicHit) this.char.onBasicHit(enemy, proj);
     }
 
     applyHitPassives(enemy) {
       if (!enemy) return;
-      if (this.frostHits && enemy.applySlow) enemy.applySlow(0.65, 1.4);
-      if (this.emberHits && enemy.applyBurn) enemy.applyBurn(2.0, 2.0);
+      if (this.frostHits && enemy.applySlow) {
+        enemy.applySlow(Math.max(0.35, 0.65 - 0.04 * (this.frostStacks - 1)), 1.4 + 0.25 * (this.frostStacks - 1));
+      }
+      if (this.emberHits && enemy.applyBurn) {
+        enemy.applyBurn(2.0, 2.0 + 1.2 * (this.emberStacks - 1));
+      }
     }
 
     weaponExplode(proj, opts) {
@@ -806,7 +831,7 @@
       // 移动
       const mv = this.game.getMoveVector();
       const sp = this.speed
-        * (this.swiftTimer > 0 ? 1.25 : 1)
+        * (this.swiftTimer > 0 ? Math.min(1.55, 1.25 + 0.06 * Math.max(0, this.swiftStacks - 1)) : 1)
         * (this.maskTimer > 0 ? 1.15 : 1)
         * (this.slowTimer > 0 && this.maskTimer <= 0 ? this.slowMult : 1);
       if (mv.x !== 0 || mv.y !== 0) {
@@ -902,9 +927,9 @@
         source: this,
         sourceKey: 'basic',
         visual: opts.visual || 'orb',
-        pierce: opts.pierce || 0,
+        pierce: (opts.pierce || 0) + this.bonusPierce,
         life: opts.life || 1.6,
-        homing: opts.homing,
+        homing: (opts.homing || 0) + this.bonusHoming,
         homingTarget: opts.homingTarget,
         homingDelay: opts.homingDelay,
         trail: opts.trail,
@@ -927,7 +952,8 @@
 
     critExplode(enemy) {
       if (!enemy) return;
-      const radius = 54;
+      const stacks = Math.max(1, this.critBurstStacks || 1);
+      const radius = 54 + 8 * (stacks - 1);
       Ink.FX.ring(this.game, {
         x: enemy.x, y: enemy.y, r0: 4, r1: radius, life: 0.25,
         color: '#ffb35c', width: 2
@@ -935,7 +961,7 @@
       for (const e of this.game.enemies.slice()) {
         if (e.dead || e === enemy || e.spawnTimer > 0) continue;
         if (U.dist(enemy.x, enemy.y, e.x, e.y) > radius + e.radius) continue;
-        this.game.damageEnemy(e, this.damage * 0.5, {
+        this.game.damageEnemy(e, this.damage * (0.5 + 0.12 * (stacks - 1)), {
           source: 'passive', sourceKey: 'critburst', color: '#ffb35c'
         });
       }
@@ -1079,7 +1105,7 @@
     onRoomEnter() {
       this.char.onRoomEnter();
       this.invuln = Math.max(this.invuln, 0.6);
-      if (this.guardian) this.addArmor(4);
+      if (this.guardian) this.addArmor(4 * Math.max(1, this.guardianStacks));
       // 司南：进房自动指向最强敌人
       if (this.weapon && this.weapon.special === 'markstrong') {
         let best = null;
@@ -1098,6 +1124,7 @@
     onWeaponKill(enemy) {
       if (this.maskTimer > 0) this.maskTimer = Math.min(13, this.maskTimer + 1.2);
       if (enemy && this.compassTarget === enemy) this.compassTarget = null;
+      if (this.armorOnKill > 0) this.addArmor(this.armorOnKill);
     }
 
     // ── 绘制 ──────────────────────────────────────────────

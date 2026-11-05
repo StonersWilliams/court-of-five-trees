@@ -1356,7 +1356,7 @@
       text(ctx, '机 缘 三 选', 480, 110, {
         size: 26, color: PAL.gold, align: 'center', bold: true
       });
-      text(ctx, '每层第 2、4 关后，从三条机制里选一条 · 数字键 1 / 2 / 3', 480, 140, {
+      text(ctx, '每层第 2、4、6 关后，从三条机制里选一条 · 可重复叠加 · 数字键 1 / 2 / 3', 480, 140, {
         size: 11, color: PAL.muted, align: 'center'
       });
 
@@ -1395,10 +1395,14 @@
         text(ctx, '机 制 · 被 动', x + cw / 2, y + 150, {
           size: 9, color: PAL.muted, align: 'center'
         });
-        wrapped(ctx, def.desc, x + cw / 2, y + 172, cw - 40, {
-          size: 10, color: PAL.parchment2, lineHeight: 15, align: 'center', maxLines: 4
+        wrapped(ctx, def.desc, x + cw / 2, y + 170, cw - 40, {
+          size: 10, color: PAL.parchment2, lineHeight: 14, align: 'center', maxLines: 3
         });
-        this._button(ctx, { x: x + 34, y: y + 244, w: cw - 68, h: 30 }, '选 择', {
+        const owned = this.game.player ? this.game.player.passiveStack(def.id) : 0;
+        text(ctx, owned ? '已叠加 ' + owned + ' 层 · 再选 +1' : '尚未拥有 · 可叠加', x + cw / 2, y + 232, {
+          size: 9, color: owned ? def.color : PAL.muted, align: 'center'
+        });
+        this._button(ctx, { x: x + 34, y: y + 246, w: cw - 68, h: 28 }, '选 择', {
           size: 12, selected: true, onClick: () => this.game.choosePassive(def.id)
         });
         text(ctx, String(i + 1), x + 14, y + 18, {
