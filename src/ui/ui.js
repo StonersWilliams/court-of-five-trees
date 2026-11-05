@@ -216,7 +216,22 @@
       }
 
       // 键盘快捷操作
-      if (state === 'title') {
+      if (state === 'intro') {
+        if (input.wasPressed('Escape')) this.game.skipIntro();
+        else if (input.wasPressed('Enter', 'Space')) this.game.advanceIntro();
+      } else if (state === 'ending') {
+        if (this.game.endingResult) {
+          if (input.wasPressed('Enter')) this.game.restartRun();
+        } else {
+          const keys = ['KeyW', 'KeyB', 'KeyF', 'KeyS'];
+          const ids = ['white', 'brush', 'fire', 'seat'];
+          for (let i = 0; i < 4; i++) {
+            if (input.wasPressed(keys[i], 'Digit' + (i + 1), 'Numpad' + (i + 1))) {
+              this.game.chooseEnding(ids[i]);
+            }
+          }
+        }
+      } else if (state === 'title') {
         if (input.wasPressed('Enter', 'Space')) {
           this.game.audio.sfx('ui');
           this.game.toSelect();
@@ -246,6 +261,13 @@
         for (let i = 0; i < Math.min(3, choices.length); i++) {
           if (input.wasPressed('Digit' + (i + 1), 'Numpad' + (i + 1))) {
             this.game.choosePassive(choices[i]);
+          }
+        }
+      } else if (state === 'event') {
+        const choices = this.game.eventChoices || [];
+        for (let i = 0; i < Math.min(3, choices.length); i++) {
+          if (input.wasPressed('Digit' + (i + 1), 'Numpad' + (i + 1))) {
+            this.game.chooseEvent(i);
           }
         }
       } else if (state === 'shop') {
@@ -391,7 +413,9 @@
       ctx.imageSmoothingEnabled = false;
       this.buttons = [];
       const state = this.game.state;
-      if (state === 'title') this._drawTitle(ctx);
+      if (state === 'intro') this._drawIntro(ctx);
+      else if (state === 'ending') this._drawEnding(ctx);
+      else if (state === 'title') this._drawTitle(ctx);
       else if (state === 'select') this._drawSelect(ctx);
       else if (state === 'levelup') {
         this._drawHUD(ctx);
@@ -402,6 +426,9 @@
       } else if (state === 'shop') {
         this._drawHUD(ctx);
         this._drawShop(ctx);
+      } else if (state === 'event') {
+        this._drawHUD(ctx);
+        this._drawEvent(ctx);
       } else if (state === 'paused') {
         this._drawHUD(ctx);
         this._drawPause(ctx);
@@ -461,6 +488,123 @@
       ctx.fillRect(0, 0, w, h);
     }
 
+    // ── 七幕序章 ──────────────────────────────────────────
+    _drawIntro(ctx) {
+      const acts = [
+        { t: '第一幕 · 空庭', s: '庭有五棵树，树下的椅子却只有四把。第五把一直空着。' },
+        { t: '第二幕 · 墨至', s: '有人把一砚未磨开的墨放在阶前。墨里沉着九个名字。' },
+        { t: '第三幕 · 门开', s: '九道门同时向内打开。每一道门后，都坐着一位不肯署名的庭主。' },
+        { t: '第四幕 · 借笔', s: '你从旧稿堆里抽出一支笔。笔杆上有前一位执棋者留下的指痕。' },
+        { t: '第五幕 · 入局', s: '棋盘不是棋盘，是一座不断重写的庭院。每清一页，就多一层。' },
+        { t: '第六幕 · 失名', s: '你开始记不清自己的名字，却记得每一位庭主的真名。' },
+        { t: '第七幕 · 最后一页', s: '最后一页没有字。五棵树在风里，等你落下第一笔。' }
+      ];
+      const idx = Math.min(6, this.game.introIndex || 0);
+      const act = acts[idx];
+      const elapsed = this.game.introTimer || 0;
+      this._drawBackdrop(ctx, '#0d0b16');
+
+      // 水墨圆环 + 树影
+      ctx.save();
+      ctx.translate(480, 250);
+      for (let i = 0; i < 3; i++) {
+        ctx.globalAlpha = 0.07 + i * 0.03;
+        ctx.strokeStyle = PAL.gold;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(0, 0, 150 + i * 36 + Math.sin(this.time * 0.7 + i) * 4, 0, U.TAU);
+        ctx.stroke();
+      }
+      ctx.restore();
+
+      text(ctx, act.t, 480, 180, {
+        size: 28, color: PAL.gold, align: 'center', bold: true
+      });
+      const shown = act.s.slice(0, Math.floor(elapsed * 13));
+      wrapped(ctx, shown, 480, 230, 560, {
+        size: 14, color: PAL.parchment, lineHeight: 24, align: 'center', maxLines: 4
+      });
+      text(ctx, (idx + 1) + ' / 7', 480, 352, {
+        size: 11, color: PAL.muted, align: 'center'
+      });
+      for (let i = 0; i < 7; i++) {
+        ctx.fillStyle = i <= idx ? PAL.gold : 'rgba(232,193,112,.2)';
+        ctx.fillRect(432 + i * 18, 370, 10, 2);
+      }
+      this._button(ctx, { x: 340, y: 430, w: 280, h: 40 }, '继 续', {
+        size: 15, selected: true, onClick: () => this.game.advanceIntro()
+      });
+      this._button(ctx, { x: 400, y: 490, w: 160, h: 30 }, '跳 过 序 章', {
+        size: 11, onClick: () => this.game.skipIntro()
+      });
+      text(ctx, '空格 继续 · Esc 跳过', 480, 552, {
+        size: 10, color: 'rgba(207,192,157,.45)', align: 'center'
+      });
+    }
+
+    // ── 终局 ──────────────────────────────────────────────
+    _drawEnding(ctx) {
+      this._drawBackdrop(ctx, '#0c0a12');
+      const result = this.game.endingResult;
+      const s = this.game.runStats || {};
+      if (!result) {
+        text(ctx, '最 后 一 页', 480, 82, {
+          size: 32, color: PAL.gold, align: 'center', bold: true
+        });
+        text(ctx, '白墨、朱笔、火，或那把一直空着的椅子。', 480, 116, {
+          size: 11, color: PAL.muted, align: 'center'
+        });
+        text(ctx, '残稿 ' + (s.fragments || 0) + ' / 5   ·   庭主真名 ' + (s.trueNames || 0) + ' / 9   ·   庭主印 ' + (s.seals || 0) + ' / 3', 480, 142, {
+          size: 10, color: PAL.gold2, align: 'center'
+        });
+        const choices = this.game.endingChoices || [];
+        const cw = 166, gap = 18;
+        const x0 = (960 - (choices.length * cw + (choices.length - 1) * gap)) / 2;
+        for (let i = 0; i < choices.length; i++) {
+          const c = choices[i];
+          const x = x0 + i * (cw + gap);
+          const y = 190, h = 220;
+          const hover = !this.game.touchMode && hit({ x, y, w: cw, h }, this.game.input.mouse.x, this.game.input.mouse.y);
+          panel(ctx, x, y, cw, h, {
+            fill: hover ? 'rgba(40,34,48,.98)' : 'rgba(18,15,24,.96)',
+            border: hover ? PAL.gold : 'rgba(90,76,110,.9)'
+          });
+          text(ctx, c.label, x + cw / 2, y + 52, {
+            size: 24, color: PAL.parchment, align: 'center', bold: true
+          });
+          wrapped(ctx, c.desc, x + cw / 2, y + 86, cw - 26, {
+            size: 10, color: PAL.muted, lineHeight: 16, align: 'center', maxLines: 3
+          });
+          this._button(ctx, { x: x + 22, y: y + 170, w: cw - 44, h: 28 }, '落 笔', {
+            size: 11, selected: true, onClick: () => this.game.chooseEnding(c.id)
+          });
+        }
+        text(ctx, '条件不足时，你会退回第一层。', 480, 468, {
+          size: 10, color: 'rgba(207,192,157,.45)', align: 'center'
+        });
+        return;
+      }
+
+      text(ctx, result.name, 480, 160, {
+        size: 48, color: PAL.gold, align: 'center', bold: true
+      });
+      wrapped(ctx, result.text, 480, 230, 560, {
+        size: 14, color: PAL.parchment, lineHeight: 25, align: 'center', maxLines: 4
+      });
+      text(ctx, '第 ' + (s.floor || 1) + ' 层   ·   击倒 ' + (s.kills || 0) + '   ·   清净 ' + (s.rooms || 0) + ' 页   ·   ' + U.time(s.time || 0), 480, 350, {
+        size: 10, color: PAL.muted, align: 'center'
+      });
+      this._button(ctx, { x: 250, y: 420, w: 200, h: 40 }, '再 入 庭', {
+        size: 14, selected: true, onClick: () => this.game.restartRun()
+      });
+      this._button(ctx, { x: 470, y: 420, w: 200, h: 40 }, '更 换 角 色', {
+        size: 14, onClick: () => this.game.toSelect()
+      });
+      this._button(ctx, { x: 380, y: 480, w: 200, h: 32 }, '返 回 标 题', {
+        size: 11, onClick: () => this.game.toTitle()
+      });
+    }
+
     // ── 标题 ──────────────────────────────────────────────
     _drawTitle(ctx) {
       this._drawBackdrop(ctx, '#121022');
@@ -516,7 +660,7 @@
       });
 
       const pulse = 0.55 + Math.sin(t * 2.4) * 0.18;
-      text(ctx, '三层 · 每层五关 · 九庭主 · 二十九兵刃', 480, 330, {
+      text(ctx, '九层 · 每层七关 · 九庭主 · 三十四兵刃', 480, 330, {
         size: 12, color: U.rgba(PAL.muted, pulse), align: 'center'
       });
 
@@ -543,7 +687,7 @@
       text(ctx, 'MIT License · 零依赖 · 程序化像素美术 / WebAudio 音效', 36, 580, {
         size: 9, color: 'rgba(109,99,136,.7)'
       });
-      text(ctx, 'v2.1', 924, 580, { size: 9, color: 'rgba(109,99,136,.7)', align: 'right' });
+      text(ctx, 'v3.0', 924, 580, { size: 9, color: 'rgba(109,99,136,.7)', align: 'right' });
     }
 
     // ── 角色选择 ──────────────────────────────────────────
@@ -703,11 +847,11 @@
       if (floor) {
         const room = game.room;
         const stage = room ? (room.stage || (room.type === 'shop' ? '商' : 1)) : 1;
-        text(ctx, '第 ' + floor.number + ' 层 · 关卡 ' + stage + ' / 5', 480, 20, {
+        text(ctx, '第 ' + floor.number + ' 层 · 关卡 ' + stage + ' / 7', 480, 20, {
           size: 13, color: PAL.gold, align: 'center', bold: true
         });
         if (room) {
-          const icon = room.type === 'boss' ? '庭主之间' : room.type === 'elite' ? '精英关卡' : room.type === 'shop' ? '行商' : '战斗关卡';
+          const icon = room.type === 'boss' ? '庭主之间' : room.type === 'elite' ? '精英关卡' : room.type === 'shop' ? '行商' : room.type === 'event' ? '随机事件' : '战斗关卡';
           text(ctx, room.name + '  ·  ' + icon, 480, 39, {
             size: 10, color: PAL.parchment2, align: 'center'
           });
@@ -815,7 +959,7 @@
         size: 9, color: PAL.parchment2, align: 'right'
       });
 
-      const cellW = 34, cellH = 23;
+      const cellW = 24, cellH = 23;
       const ox = px + 14, oy = py + 26;
       const byId = {};
       for (const r of floor.rooms) byId[r.id] = r;
@@ -851,6 +995,7 @@
         if (r.type === 'boss') { fill = 'rgba(217,79,92,.2)'; border = 'rgba(255,125,125,.75)'; }
         if (r.type === 'elite') { fill = 'rgba(232,193,112,.16)'; border = 'rgba(232,193,112,.75)'; }
         if (r.type === 'shop') { fill = 'rgba(255,211,107,.18)'; border = 'rgba(255,211,107,.8)'; }
+        if (r.type === 'event') { fill = 'rgba(143,214,255,.16)'; border = 'rgba(143,214,255,.75)'; }
         if (isCurrent) {
           const pulse = 0.7 + Math.sin(this.time * 5) * 0.3;
           ctx.save();
@@ -1184,6 +1329,53 @@
       });
     }
 
+    // ── 随机事件 ──────────────────────────────────────────
+    _drawEvent(ctx) {
+      ctx.save();
+      ctx.fillStyle = 'rgba(4,3,9,.8)';
+      ctx.fillRect(0, 0, 960, 600);
+      ctx.restore();
+
+      const room = this.game.room;
+      panel(ctx, 110, 70, 740, 460, { fill: 'rgba(14,12,22,.98)', border: 'rgba(143,214,255,.55)' });
+      drawCornerMarks(ctx, 110, 70, 740, 460, '#8fd6ff');
+      text(ctx, (room && room.name) || '奇 遇', 480, 108, {
+        size: 26, color: '#cbe8ff', align: 'center', bold: true
+      });
+      wrapped(ctx, this.game.eventNotice || '庭中忽然多出一条没有编号的路。', 480, 138, 600, {
+        size: 11, color: PAL.muted, lineHeight: 17, align: 'center', maxLines: 2
+      });
+
+      const choices = (this.game.eventChoices || []).slice(0, 3);
+      const cw = 210, gap = 25;
+      const x0 = (960 - (choices.length * cw + (choices.length - 1) * gap)) / 2;
+      for (let i = 0; i < choices.length; i++) {
+        const c = choices[i];
+        const x = x0 + i * (cw + gap);
+        const y = 200, h = 236;
+        const mouse = this.game.input.mouse;
+        const hover = !this.game.touchMode && hit({ x, y, w: cw, h }, mouse.x, mouse.y);
+        panel(ctx, x, y, cw, h, {
+          fill: hover ? 'rgba(40,42,62,.98)' : 'rgba(20,20,32,.96)',
+          border: hover ? '#8fd6ff' : 'rgba(70,80,110,.95)'
+        });
+        text(ctx, String(i + 1), x + 12, y + 14, { size: 10, color: PAL.gold, bold: true });
+        text(ctx, c.label, x + cw / 2, y + 58, {
+          size: 18, color: '#e7f5ff', align: 'center', bold: true
+        });
+        wrapped(ctx, c.desc, x + cw / 2, y + 92, cw - 36, {
+          size: 11, color: PAL.parchment2, lineHeight: 17, align: 'center', maxLines: 4
+        });
+        this._button(ctx, { x: x + 28, y: y + h - 48, w: cw - 56, h: 30 }, '选 择', {
+          size: 12, selected: true, onClick: () => this.game.chooseEvent(i)
+        });
+      }
+
+      text(ctx, '事件不会重复；选择后门扉开启。', 480, 492, {
+        size: 10, color: 'rgba(207,192,157,.55)', align: 'center'
+      });
+    }
+
     // ── 行商 ──────────────────────────────────────────────
     _drawShop(ctx) {
       ctx.save();
@@ -1303,7 +1495,7 @@
       text(ctx, '空格 / 右键主动技能 · ESC 继续', 480, 434, {
         size: 9, color: PAL.muted, align: 'center'
       });
-      text(ctx, '提示：清空关卡 1–4 的敌人，庭主门才会解封。', 480, 478, {
+      text(ctx, '提示：清空关卡 1–6 的敌人并处理事件，庭主门才会解封。', 480, 478, {
         size: 9, color: 'rgba(232,193,112,.55)', align: 'center'
       });
     }
@@ -1446,7 +1638,7 @@
         {
           x: 644, title: '局内循环',
           lines: [
-            '每层 5 关 · 第 5 关为庭主',
+            '每层 7 关 · 第 7 关为庭主',
             '第 2、4 关后：机制被动三选一',
             '精英关旁：行商换武器',
             '庭主掉落专属武器',

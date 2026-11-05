@@ -52,11 +52,9 @@
     }
 
     useSkill() {
-      const dog = this.game.dog;
-      if (!dog) return false;
-      const wasDead = !dog.alive;
-      dog.commandCharge();
-      Ink.FX.text(this.game, wasDead ? '影犬·归位' : '影犬·冲锋',
+      const pack = this.game.commandDogPack ? this.game.commandDogPack() : null;
+      if (!pack || !pack.any) return false;
+      Ink.FX.text(this.game, pack.revived ? '影犬·归位 ×' + pack.count : '影犬·冲锋 ×' + pack.count,
         this.player.x, this.player.y - 44, '#ffe6a8', 14, 0.8);
       return true;
     }
@@ -122,7 +120,7 @@
     skillName: '影犬·冲锋',
     skillDesc: '命令影犬冲锋并嘲讽周围敌人 3.4 秒；影犬被击破时立即以 50% 生命复活。',
     passiveName: '影犬',
-    passiveDesc: '影犬自动攻击并分担 34% 伤害；被击破时回复 6 护甲并缩短 3 秒召唤时间。',
+    passiveDesc: '影犬自动攻击并分担 34% 伤害；每层多一只，最多 8 只；被击破时回复 6 护甲并缩短召唤时间。',
     quote: '别怕，它不咬人——它只咬不听话的。',
     create(player, game) { return new SmartDog(player, game); }
   });

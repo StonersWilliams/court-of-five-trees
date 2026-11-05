@@ -18,11 +18,11 @@
 
   // 每个角色的初始兵刃：后续仍可自由更换/丢弃，不锁死职业。
   const STARTING_WEAPON = {
-    qiyun: 'flintlock',
-    xiaoying: 'shears',
-    xinyue: 'lantern',
-    ziyu: 'inkmaw',
-    smartdog: 'boneflute'
+    qiyun: 'chunqiu',
+    xiaoying: 'judgebrush',
+    xinyue: 'mirror',
+    ziyu: 'seal',
+    smartdog: 'puppet'
   };
 
   class Player {
@@ -98,6 +98,16 @@
       this.guardian = false;
       this.swift = false;
       this.swiftTimer = 0;
+
+      // 兵器专属节奏：连段、蓄力、变身与临时增益
+      this.weaponShots = 0;
+      this.weaponHits = 0;
+      this.maskTimer = 0;
+      this.mirrorTimer = 0;
+      this.mirrorCharges = 0;
+      this.diceTimer = 0;
+      this.diceMode = '';
+      this.compassTarget = null;
 
       this._prevRight = false;
       this.char.onSpawn();
@@ -260,6 +270,7 @@
           def
         });
       }
+      this.weaponSpecial(def);
       this.weaponCd = this._weaponCooldown();
       this.weaponCdMax = def.cooldown;
       this.weaponRecoil = 1;
@@ -309,6 +320,327 @@
       });
       Ink.FX.burst(this.game, px, py, opts.color || '#e8c170', 3, 60, { size: 2, lifeMult: 0.45 });
       return proj;
+    }
+
+    /**
+     * 每把兵器的“签名节奏”。
+     * 不额外增加按键：第三/四/五发本身就是蓄力或连段，移动端也能稳定触发。
+     */
+    weaponSpecial(def) {
+      if (!def || !def.special) return;
+      this.weaponShots++;
+      const n = this.weaponShots;
+      const aim = this.getAimPoint();
+      const ring = (x, y, r, color, width) => Ink.FX.ring(this.game, {
+        x, y, r0: 6, r1: r, life: 0.34, color: color || def.color, width: width || 2
+      });
+      const aoe = (x, y, radius, mult, status) => {
+        let hits = 0;
+        for (const e of this.game.enemies.slice()) {
+          if (e.dead) continue;
+          if (U.dist(x, y, e.x, e.y) > radius + e.radius) continue;
+          this.game.damageEnemy(e, def.damage * mult, {
+            source: 'weapon', sourceKey: def.id, color: def.color
+          });
+          hits++;
+          if (status && !e.dead) status(e);
+        }
+        return hits;
+      };
+      const slow = (e) => e.applySlow && e.applySlow(0.55, 1.6);
+      const stun = (e) => { e.stunTimer = Math.max(e.stunTimer || 0, 0.9); };
+
+      switch (def.special) {
+        case 'combo3':
+          if (n % 3 === 0) {
+            const angle = this.aimAngle;
+            for (let i = -1; i <= 1; i++) {
+              this.weaponShot({
+                def, angleOffset: i * 0.22, speed: 680, radius: 6, life: 0.8,
+                visual: 'ink', color: '#c94e5c', pierce: 2, damage: def.damage * 0.85
+              });
+            }
+            aoe(this.x + Math.cos(angle) * 70, this.y + Math.sin(angle) * 70, 54, 1.2, slow);
+            Ink.FX.text(this.game, '诛', aim.x, aim.y - 22, '#d24b4b', 18, 0.8);
+            ring(aim.x, aim.y, 44, '#d24b4b', 3);
+            this.game.audio.sfx('slash');
+          }
+          break;
+
+        case 'judge':
+          if (n % 4 === 0) {
+            const target = this.nearestEnemy(220);
+            if (target && target.hpRatio && target.hpRatio() < 0.3 && !target.isBoss) {
+              this.game.damageEnemy(target, target.hp + 6, { source: 'weapon', sourceKey: 'judge', color: '#ff6b6b' });
+              Ink.FX.text(this.game, '处决', target.x, target.y - 26, '#ff6b6b', 16, 1.0);
+              this.weaponCd = Math.max(0, this.weaponCd - this.weaponCdMax * 0.5);
+            } else {
+              this.weaponCd = Math.max(0, this.weaponCd - this.weaponCdMax * 0.18);
+            }
+          }
+          break;
+
+        case 'slam3':
+        case 'spin':
+          if (n % 3 === 0) {
+            aoe(this.x + Math.cos(this.aimAngle) * 50, this.y + Math.sin(this.aimAngle) * 50, 76, 1.35, slow);
+            ring(this.x, this.y, 82, def.color, 4);
+            Ink.FX.burst(this.game, this.x, this.y + 14, '#b08a5a', 12, 130, { size: 3, gravity: 80 });
+            this.game.addShake(4, 0.18);
+            this.game.audio.sfx('hit');
+          }
+          break;
+
+        case 'stunwave':
+        case 'bellwave':
+          if (n % (def.special === 'bellwave' ? 4 : 4) === 0) {
+            const times = def.special === 'bellwave' ? 2 : 1;
+            for (let k = 0; k < times; k++) {
+              const radius = 128 + k * 46;
+              const hit = aoe(this.x, this.y, radius, 1.2, stun);
+              ring(this.x, this.y, radius, '#e8c170', 4);
+              if (hit) this.game.addShake(4, 0.2);
+            }
+            this.game.audio.sfx('explosion');
+          }
+          break;
+
+        case 'fan':
+          if (n % 3 === 0) {
+            this.guardTimer = 0.85;
+            Ink.FX.ring(this.game, {
+              x: this.x, y: this.y, r0: 16, r1: 34, life: 0.3, color: '#e9dfc2', width: 2
+            });
+          }
+          break;
+
+        case 'rainfield':
+        case 'inkwave':
+        case 'lanternfield':
+          if (n % 3 === 0) {
+            const x = this.x + Math.cos(this.aimAngle) * 86;
+            const y = this.y + Math.sin(this.aimAngle) * 86;
+            aoe(x, y, def.special === 'inkwave' ? 92 : 70, 1.1, (e) => {
+              slow(e);
+              if (def.special === 'lanternfield' && e.applyBurn) e.applyBurn(2.0, 4);
+            });
+            ring(x, y, def.special === 'inkwave' ? 92 : 70, def.color, 3);
+            Ink.FX.burst(this.game, x, y, def.color, 12, 100, { size: 3 });
+          }
+          break;
+
+        case 'sealfield':
+          if (n % 3 === 0) {
+            const x = aim.x, y = aim.y;
+            aoe(x, y, 86, 1.4, (e) => {
+              e.trappedTimer = Math.max(e.trappedTimer || 0, 0.7);
+              e.stunTimer = Math.max(e.stunTimer || 0, 1.2);
+            });
+            ring(x, y, 86, '#c94e5c', 4);
+            Ink.FX.text(this.game, '封', x, y - 20, '#c94e5c', 18, 1.0);
+          }
+          break;
+
+        case 'type':
+          // 平/上/去/入：直飞、抛射、穿透、爆炸
+          {
+            const roll = n % 4;
+            const names = ['平', '上', '去', '入'];
+            const colors = ['#8fd6ff', '#ffd36b', '#ff7d7d', '#c084fc'];
+            this.weaponShot({
+              def, damage: def.damage * (roll === 3 ? 1.5 : 1),
+              speed: roll === 1 ? 380 : 620, pierce: roll === 2 ? 5 : 0,
+              explode: roll === 3 ? 62 : 0, explodeMult: 0.65,
+              visual: 'ink', color: colors[roll], radius: 7
+            });
+            Ink.FX.text(this.game, names[roll], this.x, this.y - 38, colors[roll], 14, 0.5);
+          }
+          break;
+
+        case 'spread':
+          if (n % 3 === 0) {
+            for (let i = -2; i <= 2; i++) {
+              this.weaponShot({
+                def, angleOffset: i * 0.16, damage: def.damage * 0.8,
+                speed: 720, pierce: 2, visual: 'needle', color: def.color
+              });
+            }
+            ring(this.x, this.y, 56, def.color, 2);
+          }
+          break;
+
+        case 'pierce':
+          if (n % 3 === 0) {
+            this.weaponShot({
+              def, damage: def.damage * 1.6, speed: 860, radius: 5,
+              pierce: 9, visual: 'needle', color: n % 6 === 0 ? '#ffb7c8' : '#e8dfc2'
+            });
+          }
+          break;
+
+        case 'sound':
+          if (n % 4 === 0) {
+            aoe(this.x + Math.cos(this.aimAngle) * 90, this.y + Math.sin(this.aimAngle) * 90, 96, 1.1, slow);
+            ring(this.x, this.y, 90, '#b7e6ef', 4);
+            ring(this.x, this.y, 58, '#e8dfc2', 2);
+          }
+          break;
+
+        case 'bounce':
+          if (n % 4 === 0) this.bonusBounce = Math.min(8, (this.bonusBounce || 0) + 1);
+          break;
+
+        case 'beam':
+          if (n % 4 === 0) {
+            this.weaponShot({
+              def, damage: def.damage * 1.65, speed: 980, radius: 5,
+              pierce: 12, life: 1.5, visual: 'ink', color: '#fff6e7', scale: 1.4
+            });
+            this.game.addShake(4, 0.15);
+          }
+          break;
+
+        case 'mirror':
+          this.mirrorTimer = 1.0;
+          this.mirrorCharges = 1;
+          if (n % 4 === 0) {
+            aoe(this.x + Math.cos(this.aimAngle) * 100, this.y + Math.sin(this.aimAngle) * 100, 74, 1.2, slow);
+            ring(this.x, this.y, 78, '#c7efd4', 3);
+          }
+          break;
+
+        case 'markstrong':
+          if (n % 3 === 0 || !this.compassTarget || this.compassTarget.dead) {
+            let best = null;
+            for (const e of this.game.enemies) {
+              if (e.dead) continue;
+              if (!best || (e.maxHp || e.hp) > (best.maxHp || best.hp)) best = e;
+            }
+            if (best) {
+              best.applyMark && best.applyMark(6);
+              this.compassTarget = best;
+              Ink.FX.text(this.game, '司南·指', best.x, best.y - 28, '#c94e5c', 13, 0.7);
+            }
+          }
+          break;
+
+        case 'dice':
+          if (n % 3 === 0) {
+            const pips = U.randInt(1, 6);
+            const names = ['礼', '乐', '射', '御', '书', '数'];
+            Ink.FX.text(this.game, names[pips - 1], this.x, this.y - 42, def.color, 15, 0.7);
+            if (pips === 1) this.addArmor(5);
+            else if (pips === 2) {
+              this.weaponShot({ def, damage: def.damage, speed: 620, visual: 'orb', color: '#8fd6ff', pierce: 2 });
+            } else if (pips === 3) {
+              this.weaponShot({ def, damage: def.damage * 1.4, speed: 900, visual: 'needle', pierce: 6 });
+            } else if (pips === 4) this.swiftTimer = 2;
+            else if (pips === 5) {
+              this.weaponShot({ def, damage: def.damage, speed: 520, visual: 'ink', explode: 48, explodeMult: 0.6 });
+            } else {
+              aoe(this.x + Math.cos(this.aimAngle) * 70, this.y + Math.sin(this.aimAngle) * 70, 90, 1.4, slow);
+              ring(this.x, this.y, 92, '#ffd36b', 4);
+            }
+          }
+          break;
+
+        case 'coin':
+          if (n % 5 === 0) {
+            const x = this.x + Math.cos(this.aimAngle) * 80;
+            const y = this.y + Math.sin(this.aimAngle) * 80;
+            aoe(x, y, 78, 0.7, slow);
+            this.game.dropCoin && this.game.dropCoin(x, y, 2);
+            ring(x, y, 78, '#ffd36b', 3);
+          }
+          break;
+
+        case 'kite':
+          if (n % 4 === 0) {
+            for (let i = -1; i <= 1; i++) {
+              this.weaponShot({
+                def, angleOffset: i * 0.4, damage: def.damage * 0.65,
+                speed: 430, homing: 5, explode: 46, explodeMult: 0.5,
+                visual: 'petal', color: def.color, radius: 6
+              });
+            }
+            Ink.FX.text(this.game, '断线', this.x, this.y - 38, '#d9a35c', 13, 0.7);
+          }
+          break;
+
+        case 'puppet':
+          if (n % 4 === 0) {
+            const forms = ['生', '旦', '净', '丑'];
+            const f = forms[n % forms.length];
+            Ink.FX.text(this.game, f, this.x, this.y - 38, '#c79a62', 14, 0.6);
+            if (f === '生') {
+              this.weaponShot({ def, damage: def.damage * 1.5, speed: 820, pierce: 3, visual: 'needle' });
+            } else if (f === '旦') {
+              this.weaponShot({ def, damage: def.damage, speed: 560, homing: 3, visual: 'orb' });
+            } else if (f === '净') {
+              aoe(this.x + Math.cos(this.aimAngle) * 54, this.y + Math.sin(this.aimAngle) * 54, 72, 1.5, stun);
+            } else {
+              this.weaponShot({ def, damage: def.damage, speed: 480, explode: 50, explodeMult: 0.7, visual: 'petal' });
+            }
+          }
+          break;
+
+        case 'mask':
+          if (n % 5 === 0 && this.maskTimer <= 0) {
+            this.maskTimer = 8;
+            Ink.FX.text(this.game, '傩面·变身', this.x, this.y - 42, '#b54b45', 16, 1.0);
+            Ink.FX.ring(this.game, { x: this.x, y: this.y, r0: 8, r1: 78, life: 0.5, color: '#b54b45', width: 4 });
+            this.game.addShake(4, 0.2);
+          }
+          if (this.maskTimer > 0) {
+            aoe(this.x + Math.cos(this.aimAngle) * 42, this.y + Math.sin(this.aimAngle) * 42, 48, 0.8, slow);
+          }
+          break;
+
+        default:
+          // 庭主遗物：每第四发打出一次大范围余波
+          if (def.bossOnly && n % 4 === 0) {
+            const x = this.x + Math.cos(this.aimAngle) * 90;
+            const y = this.y + Math.sin(this.aimAngle) * 90;
+            aoe(x, y, 100, 1.5, slow);
+            ring(x, y, 100, def.color, 4);
+            this.game.addShake(4, 0.16);
+          }
+          break;
+      }
+    }
+
+    updateWeaponHooks(dt) {
+      this.guardTimer = Math.max(0, (this.guardTimer || 0) - dt);
+      this.maskTimer = Math.max(0, this.maskTimer - dt);
+      this.mirrorTimer = Math.max(0, this.mirrorTimer - dt);
+      if (this.maskTimer <= 0 && this._maskWasActive) {
+        this._maskWasActive = false;
+        for (const p of this.game.projectiles) {
+          if (p.owner === 'enemy' && U.dist(this.x, this.y, p.x, p.y) < 150) p.dead = true;
+        }
+        Ink.FX.ring(this.game, { x: this.x, y: this.y, r0: 20, r1: 150, life: 0.5, color: '#ffd36b', width: 5 });
+        Ink.FX.text(this.game, '傩面·收', this.x, this.y - 38, '#ffd36b', 14, 0.8);
+      }
+      if (this.maskTimer > 0) this._maskWasActive = true;
+
+      if (this.mirrorTimer > 0) {
+        for (const p of this.game.projectiles) {
+          if (p.owner !== 'enemy' || p.dead) continue;
+          if (U.dist(this.x, this.y, p.x, p.y) > 62) continue;
+          p.owner = 'player';
+          p.source = this;
+          p.sourceKey = 'mirror';
+          p.damage = Math.max(p.damage * 1.45, 12);
+          p.vx *= -1;
+          p.vy *= -1;
+          p.angle += Math.PI;
+          p.color = '#c7efd4';
+          p.dead = false;
+          this.mirrorCharges--;
+          Ink.FX.burst(this.game, p.x, p.y, '#c7efd4', 6, 80, { size: 2 });
+          if (this.mirrorCharges <= 0) break;
+        }
+      }
     }
 
     onWeaponHit(enemy, proj, opts) {
@@ -399,6 +731,7 @@
       this.weaponFlash = Math.max(0, this.weaponFlash - dt);
       this.skillFlash = Math.max(0, this.skillFlash - dt);
       this.swiftTimer = Math.max(0, this.swiftTimer - dt);
+      this.updateWeaponHooks(dt);
 
       // 护甲回复：脱战 4.5 秒后每秒回复 1.5 点
       if (this.armorRegenTimer > 0) {
@@ -423,7 +756,8 @@
       const mv = this.game.getMoveVector();
       const sp = this.speed
         * (this.swiftTimer > 0 ? 1.25 : 1)
-        * (this.slowTimer > 0 ? this.slowMult : 1);
+        * (this.maskTimer > 0 ? 1.15 : 1)
+        * (this.slowTimer > 0 && this.maskTimer <= 0 ? this.slowMult : 1);
       if (mv.x !== 0 || mv.y !== 0) {
         this.x += mv.x * sp * dt;
         this.y += mv.y * sp * dt;
@@ -638,12 +972,17 @@
     }
 
     applySlow(mult, duration) {
+      if (this.maskTimer > 0) return;
       this.slowMult = Math.min(this.slowMult, mult);
       this.slowTimer = Math.max(this.slowTimer, duration);
     }
 
     takeDamage(amount, source) {
       if (this.dead || this.invuln > 0) return;
+      amount = Math.max(1, Math.round(amount));
+      // 题扇 / 雨巷伞的格挡窗口，傩面变身的减伤
+      if ((this.guardTimer || 0) > 0) amount *= 0.35;
+      if (this.maskTimer > 0) amount *= 0.7;
       amount = Math.max(1, Math.round(amount));
       this.invuln = 0.6;
       this.hitFlash = 0.12;
@@ -690,6 +1029,24 @@
       this.char.onRoomEnter();
       this.invuln = Math.max(this.invuln, 0.6);
       if (this.guardian) this.addArmor(4);
+      // 司南：进房自动指向最强敌人
+      if (this.weapon && this.weapon.special === 'markstrong') {
+        let best = null;
+        for (const e of this.game.enemies) {
+          if (e.dead) continue;
+          if (!best || (e.maxHp || e.hp) > (best.maxHp || best.hp)) best = e;
+        }
+        if (best) {
+          best.applyMark && best.applyMark(6);
+          this.compassTarget = best;
+        }
+      }
+    }
+
+    /** 击杀回调：傩面延长变身，司南重新指向。 */
+    onWeaponKill(enemy) {
+      if (this.maskTimer > 0) this.maskTimer = Math.min(13, this.maskTimer + 1.2);
+      if (enemy && this.compassTarget === enemy) this.compassTarget = null;
     }
 
     // ── 绘制 ──────────────────────────────────────────────

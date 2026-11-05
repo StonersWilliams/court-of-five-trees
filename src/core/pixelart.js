@@ -1039,6 +1039,30 @@
         floor: '#101326', tile: '#171c33', tileAlt: '#1b213b', grout: '#070912',
         wall: '#232944', wallHi: '#4f5682', wallLo: '#0e1121',
         accent: '#a78bfa', glow: '#c084fc', rune: '#3d3770', fog: '#07040f'
+      },
+      {
+        name: '灰烬书库', sub: 'THE ASHEN ARCHIVE',
+        floor: '#1e1a18', tile: '#2a2420', tileAlt: '#2f2824', grout: '#100c0a',
+        wall: '#3a302a', wallHi: '#75604c', wallLo: '#18120e',
+        accent: '#d7a86e', glow: '#ffb36b', rune: '#5a4230', fog: '#120b08'
+      },
+      {
+        name: '镜面水庭', sub: 'THE MIRROR GARDEN',
+        floor: '#151f24', tile: '#1d2b31', tileAlt: '#223238', grout: '#081114',
+        wall: '#2a3d44', wallHi: '#6a98a4', wallLo: '#101c21',
+        accent: '#8fe3e0', glow: '#8ef0e8', rune: '#355e63', fog: '#071316'
+      },
+      {
+        name: '藤月别院', sub: 'THE VINE MOON',
+        floor: '#1b211a', tile: '#253022', tileAlt: '#2a3626', grout: '#0d120b',
+        wall: '#344030', wallHi: '#6a8a58', wallLo: '#151d12',
+        accent: '#b7d98a', glow: '#d7ff9a', rune: '#4a6238', fog: '#0b1308'
+      },
+      {
+        name: '白夜经阁', sub: 'THE WHITE NIGHT SUTRA',
+        floor: '#20242a', tile: '#2a3038', tileAlt: '#303740', grout: '#10141a',
+        wall: '#3c4652', wallHi: '#9aa9b8', wallLo: '#1a2028',
+        accent: '#cfe0f0', glow: '#f2f7ff', rune: '#5a6878', fog: '#121820'
       }
     ],
 
@@ -1047,7 +1071,7 @@
      * 每间房只在进入时绘制一次，之后每帧 drawImage，移动端也能稳定 60fps。
      */
     buildRoomBackground(room, floorIndex) {
-      const theme = this.THEMES[Math.min(4, floorIndex)];
+      const theme = this.THEMES[floorIndex % this.THEMES.length];
       const A = Ink.ARENA;
       const cv = makeCanvas(960, 600);
       const c = cv.getContext('2d');

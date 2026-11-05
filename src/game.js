@@ -24,7 +24,66 @@
     battle: '战斗',
     elite: '精英',
     boss: '层主',
-    shop: '行商'
+    shop: '行商',
+    event: '奇遇'
+  };
+
+  // 随机事件：每层第 5 关。每个事件固定三选一，奖励是即时、可见的。
+  const EVENT_DEFS = {
+    inkwell: {
+      name: '夹页书房',
+      text: '一本被墨浸透的旧书摊在桌上，夹页里还有半行未写完的字。',
+      choices: [
+        { label: '翻开夹页', desc: '获得一次机制被动。', apply(g) { g.grantRandomPassive(); } },
+        { label: '蘸墨补字', desc: '回复 35% 生命，获得 10 金币。', apply(g) { g.player.heal(g.player.maxHp * 0.35); g.player.addCoins(10); } },
+        { label: '把书合上', desc: '获得 3 点护甲。', apply(g) { g.player.addArmor(3); } }
+      ]
+    },
+    rain: {
+      name: '雨中回廊',
+      text: '雨从庭外斜进来，廊下有一把无人认领的伞。',
+      choices: [
+        { label: '撑伞听雨', desc: '回复 25% 生命，获得 8 金币。', apply(g) { g.player.heal(g.player.maxHp * 0.25); g.player.addCoins(8); } },
+        { label: '冒雨前行', desc: '获得 4 点护甲。', apply(g) { g.player.addArmor(4); } },
+        { label: '拾起伞骨', desc: '随机获得一把兵器。', apply(g) { g.grantRandomWeapon(); } }
+      ]
+    },
+    chair: {
+      name: '未编号的教室',
+      text: '空教室里只摆着一把椅子，椅背上刻着“坐者留名”。',
+      choices: [
+        { label: '坐下', desc: '回复 45% 生命。', apply(g) { g.player.heal(g.player.maxHp * 0.45); } },
+        { label: '在椅背刻字', desc: '获得一次机制被动。', apply(g) { g.grantRandomPassive(); } },
+        { label: '把椅子踢翻', desc: '获得 14 金币，但失去 8% 生命。', apply(g) { g.player.addCoins(14); g.player.hp = Math.max(1, g.player.hp - g.player.maxHp * 0.08); } }
+      ]
+    },
+    manuscript: {
+      name: '废稿堆',
+      text: '无数被退回的稿纸堆到膝盖，最上面一张还在渗墨。',
+      choices: [
+        { label: '捡起残稿', desc: '获得 16 金币，并收起一页前辈残稿。', apply(g) { g.player.addCoins(16); g.runStats.fragments = Math.min(5, g.runStats.fragments + 1); } },
+        { label: '读一页', desc: '获得一次机制被动。', apply(g) { g.grantRandomPassive(); } },
+        { label: '一把火烧了', desc: '回复 30% 生命，获得 3 护甲。', apply(g) { g.player.heal(g.player.maxHp * 0.3); g.player.addArmor(3); } }
+      ]
+    },
+    tea: {
+      name: '庭外茶摊',
+      text: '茶摊老板不看人，只把一只缺口的碗推到你面前。',
+      choices: [
+        { label: '喝一碗', desc: '回复 50% 生命。', apply(g) { g.player.heal(g.player.maxHp * 0.5); } },
+        { label: '留下茶钱', desc: '失去 12 金币，获得一次机制被动。', apply(g) { g.player.addCoins(-Math.min(12, g.player.coins)); g.grantRandomPassive(); } },
+        { label: '问庭主的事', desc: '获得 6 金币和 2 护甲。', apply(g) { g.player.addCoins(6); g.player.addArmor(2); } }
+      ]
+    },
+    bell: {
+      name: '无风钟楼',
+      text: '钟绳垂在面前。钟身上刻着九个小字，像是九个名字。',
+      choices: [
+        { label: '敲一下', desc: '随机获得一把兵器。', apply(g) { g.grantRandomWeapon(); } },
+        { label: '数钟上的字', desc: '获得一次机制被动。', apply(g) { g.grantRandomPassive(); } },
+        { label: '割断钟绳', desc: '获得 18 金币。', apply(g) { g.player.addCoins(18); } }
+      ]
+    }
   };
 
   // ═══════════════════════════════════════════════════════════
@@ -164,7 +223,14 @@
       this.time = 0;
       this.running = false;
       this.lastTs = 0;
-      this.state = 'title';
+      // 首次进入先看七幕序章；看过后写入 localStorage，不再强塞。
+      this.introSeen = (() => {
+        try { return localStorage.getItem('court.introSeen') === '1'; }
+        catch (e) { return false; }
+      })();
+      this.state = this.introSeen ? 'title' : 'intro';
+      this.introIndex = 0;
+      this.introTimer = 0;
 
       // 触屏模式：默认根据设备能力决定；首次鼠标按下会切回桌面模式。
       this.touchMode = !!this.input.hasTouch;
@@ -175,6 +241,7 @@
       this.lastCharId = 'qiyun';
       this.player = null;
       this.dog = null;
+      this.dogs = [];
       this.boss = null;
       this.dungeon = null;
       this.floorIndex = 0;
@@ -198,9 +265,13 @@
       this.pendingLevelUps = 0;
       this.passiveChoices = [];
       this.passivePending = false;
+      this.eventChoices = [];
+      this.eventNotice = '';
+      this.endingChoices = [];
+      this.endingResult = null;
       this.shopOffers = [];
       this.shopNotice = '';
-      this.runStats = { floor: 1, kills: 0, rooms: 0, time: 0, bosses: 0 };
+      this.runStats = { floor: 1, kills: 0, rooms: 0, time: 0, bosses: 0, fragments: 0, trueNames: 0, seals: 0 };
 
       this.shake = 0;
       this.shakeTime = 0;
@@ -252,6 +323,7 @@
       this.transition = null;
       this.player = null;
       this.dog = null;
+      this.dogs = [];
       this.boss = null;
       this.room = null;
       this.floorData = null;
@@ -267,6 +339,10 @@
       this.pendingLevelUps = 0;
       this.passiveChoices = [];
       this.passivePending = false;
+      this.eventChoices = [];
+      this.eventNotice = '';
+      this.endingChoices = [];
+      this.endingResult = null;
       this.shopOffers = [];
       this.touchMove = { x: 0, y: 0 };
       this.skillRequest = false;
@@ -282,6 +358,7 @@
       this.transition = null;
       this.player = null;
       this.dog = null;
+      this.dogs = [];
       this.boss = null;
       this.room = null;
       this.floorData = null;
@@ -313,6 +390,7 @@
       this.transition = null;
       this.player = null;
       this.dog = null;
+      this.dogs = [];
       this.boss = null;
       this.room = null;
       this.portal = null;
@@ -330,9 +408,13 @@
       this.pendingLevelUps = 0;
       this.passiveChoices = [];
       this.passivePending = false;
+      this.eventChoices = [];
+      this.eventNotice = '';
+      this.endingChoices = [];
+      this.endingResult = null;
       this.shopOffers = [];
       this.shopNotice = '';
-      this.runStats = { floor: 1, kills: 0, rooms: 0, time: 0, bosses: 0 };
+      this.runStats = { floor: 1, kills: 0, rooms: 0, time: 0, bosses: 0, fragments: 0, trueNames: 0, seals: 0 };
       this.touchMove = { x: 0, y: 0 };
       this.skillRequest = false;
       this.portal = null;
@@ -342,6 +424,7 @@
       this.player = new Ink.Player(this, charId);
       // 聪明小狗在角色 onSpawn 里创建影犬；其他角色保持为空。
       if (charId !== 'smartdog') this.dog = null;
+      this.dogs = this.dog ? [this.dog] : [];
 
       this.floorIndex = 0;
       this.floor = 1;
@@ -433,6 +516,53 @@
       this.ui.showToast('获得机制 · ' + (Ink.Passives[id] ? Ink.Passives[id].name : id), PAL.gold, 2.0);
     }
 
+    grantRandomPassive() {
+      const p = this.player;
+      const pool = U.shuffle(Ink.PassiveList.filter((id) => !p.hasPassive(id)));
+      if (!pool.length) {
+        p.heal(p.maxHp * 0.25);
+        this.ui.showToast('机缘已尽 · 回复生命', PAL.jade, 1.8);
+        return;
+      }
+      const id = pool[0];
+      p.applyPassive(id);
+      this.ui.showToast('事件机缘 · ' + (Ink.Passives[id] ? Ink.Passives[id].name : id), PAL.gold, 2.0);
+    }
+
+    grantRandomWeapon() {
+      const id = Ink.Weapons.randomForFloor(this.floor, Math.random);
+      if (!id) return;
+      this.dropWeaponPickup(id, this.player.x + U.rand(-50, 50), this.player.y + U.rand(24, 54), false);
+      this.ui.showToast('事件兵器 · 已落在脚边', PAL.parchment, 2.0);
+    }
+
+    openEvent() {
+      const room = this.room;
+      if (!room || room.type !== 'event') return;
+      const def = EVENT_DEFS[room.eventId] || EVENT_DEFS.inkwell;
+      this.eventChoices = def.choices;
+      this.eventNotice = def.text;
+      this.state = 'event';
+      this.touchMove = { x: 0, y: 0 };
+      this.skillRequest = false;
+      this.audio.sfx('ui');
+    }
+
+    chooseEvent(index) {
+      if (this.state !== 'event') return;
+      const choice = this.eventChoices[index];
+      if (!choice || typeof choice.apply !== 'function') return;
+      choice.apply(this);
+      this.eventChoices = [];
+      this.room.cleared = true;
+      this.dungeon.markCleared(this.floorData, this.room);
+      this.runStats.rooms++;
+      this.state = 'playing';
+      this.doorCooldown = 0.8;
+      this.audio.sfx('door');
+      this.ui.showToast('奇遇已了 · 门扉开启', PAL.gold, 1.8);
+    }
+
     // ── 行商 ─────────────────────────────────────────────
     openShop() {
       if (!this.floorData) return;
@@ -488,6 +618,47 @@
     }
 
     // ── 地牢 / 房间 ──────────────────────────────────────
+    /**
+     * 聪明小狗的影犬群：每层多一只，最多 8 只。
+     * 主犬沿用旧存档的 game.dog，其余作为 companion 加入 game.dogs。
+     */
+    syncDogPack() {
+      if (!this.player || this.lastCharId !== 'smartdog') {
+        this.dogs = [];
+        return;
+      }
+      if (!this.dog) this.dog = new Ink.ShadowDog(this, this.player);
+      const target = Math.min(8, 1 + this.floorIndex);
+      const list = [this.dog];
+      for (let i = 1; i < target; i++) {
+        let d = this.dogs && this.dogs[i];
+        if (!d || d.dead) {
+          d = new Ink.ShadowDog(this, this.player, {
+            companion: true,
+            angle: (i / target) * U.TAU,
+            dist: 58 + (i % 3) * 10
+          });
+        }
+        list.push(d);
+      }
+      this.dogs = list;
+      // 进房时把犬群散在主人周围，避免重叠。
+      const p = this.player;
+      for (let i = 0; i < list.length; i++) {
+        const d = list[i];
+        if (!d.alive) continue;
+        if (i === 0) {
+          d.x = p.x - 44;
+          d.y = p.y + 30;
+        } else {
+          const a = (i / list.length) * U.TAU + 0.4;
+          d.x = p.x + Math.cos(a) * 56;
+          d.y = p.y + Math.sin(a) * 42;
+        }
+        d.mode = 'follow';
+      }
+    }
+
     enterFloor(index, healOnEnter = true) {
       const fd = this.dungeon && this.dungeon.floors[index];
       if (!fd) return;
@@ -520,11 +691,7 @@
       p.aimAngle = -Math.PI / 2;
       p.invuln = Math.max(p.invuln, 1.1);
 
-      if (this.dog && this.dog.alive) {
-        this.dog.x = p.x - 44;
-        this.dog.y = p.y + 30;
-        this.dog.mode = 'follow';
-      }
+      this.syncDogPack();
 
       this.spawnRoom(room);
       p.onRoomEnter();
@@ -539,7 +706,7 @@
       this.touchMove = { x: 0, y: 0 };
       this.runStats.floor = this.floor;
       this.audio.setScene('play');
-      this.ui.showToast('第 ' + fd.number + ' 层 · 关卡 1 / 3', fd.theme.accent || PAL.gold, 2.2);
+      this.ui.showToast('第 ' + fd.number + ' 层 · 关卡 1 / 7', fd.theme.accent || PAL.gold, 2.2);
     }
 
     enterRoom(targetId, viaSide = null) {
@@ -585,11 +752,7 @@
       p.aimAngle = U.angleTo(p, { x: 480, y: 334 });
       p.invuln = Math.max(p.invuln, 0.9);
 
-      if (this.dog && this.dog.alive) {
-        this.dog.x = p.x - 36;
-        this.dog.y = p.y + 24;
-        this.dog.mode = 'follow';
-      }
+      this.syncDogPack();
 
       this.spawnRoom(target);
       p.onRoomEnter();
@@ -602,6 +765,10 @@
 
       if (target.type === 'shop') {
         this.openShop();
+        return;
+      }
+      if (target.type === 'event' && !target.cleared) {
+        this.openEvent();
         return;
       }
 
@@ -672,7 +839,7 @@
       if (room.enemiesSpawned) return;
       room.enemiesSpawned = true;
       room.clearTimer = 0;
-      if (room.cleared || room.type === 'shop') return;
+      if (room.cleared || room.type === 'shop' || room.type === 'event') return;
 
       if (room.type === 'boss') {
         this.boss = Ink.spawnBoss(this, this.floorData.bossId, 480, 270);
@@ -744,6 +911,17 @@
       this.time += dt;
       this.ui.update(dt);
 
+      if (this.state === 'intro') {
+        this.introTimer += dt;
+        if (this.introTimer >= 11) this.advanceIntro();
+        this.updateShake(dt);
+        return;
+      }
+      if (this.state === 'ending') {
+        this.updateShake(dt);
+        return;
+      }
+
       // 暂停 / 恢复快捷键（升级三选一与过场中不响应）
       if ((this.state === 'playing' || this.state === 'paused') &&
           this.input.wasPressed('Escape', 'KeyP')) {
@@ -792,7 +970,14 @@
       this.resolveObstacles(p);
       if (this.state !== 'playing') return;
 
-      if (this.dog) {
+      if (this.dogs && this.dogs.length) {
+        for (const d of this.dogs) {
+          if (!d) continue;
+          d.update(dt);
+          this.resolveObstacles(d);
+          if (this.state !== 'playing') return;
+        }
+      } else if (this.dog) {
         this.dog.update(dt);
         this.resolveObstacles(this.dog);
         if (this.state !== 'playing') return;
@@ -886,7 +1071,7 @@
 
     checkRoomClear(dt) {
       const room = this.room;
-      if (!room || room.cleared || room.type === 'boss' || !room.enemiesSpawned) return;
+      if (!room || room.cleared || room.type === 'boss' || room.type === 'event' || !room.enemiesSpawned) return;
       let alive = false;
       for (const e of this.enemies) {
         if (!e.dead) { alive = true; break; }
@@ -909,8 +1094,9 @@
       });
       this.ui.showToast('关卡 ' + (room.stage || 1) + ' 已清 · 门扉开启', '#8ef0c8', 1.6);
 
-      // 每层第 2、4 关结束：从机制被动里三选一。
-      if ((room.stage === 2 || room.stage === 4) && !this.floorData['passiveOffered' + room.stage]) {
+      // 每层第 2、4、6 关结束：从机制被动里三选一。
+      if ((room.stage === 2 || room.stage === 4 || room.stage === 6) &&
+          !this.floorData['passiveOffered' + room.stage]) {
         this.floorData['passiveOffered' + room.stage] = true;
         this.passivePending = true;
       }
@@ -939,7 +1125,7 @@
             const target = this.dungeon.getRoom(this.floorData, d.targetId);
             const bossLocked = target && target.type === 'boss';
             this.ui.showToast(
-              bossLocked ? '庭主门封印 · 先清空关卡 1–4' : '门被墨锁住了 · 清光敌人',
+              bossLocked ? '庭主门封印 · 先清空关卡 1–6' : '门被墨锁住了 · 清光敌人',
               '#ff9b7a', 1.4
             );
             this.audio.sfx('uiBack');
@@ -966,7 +1152,7 @@
       if (U.dist(p.x, p.y, portal.x, portal.y) < 44) {
         portal.active = false;
         this.startTransition(() => {
-          if (this.floorIndex >= Ink.FLOOR_COUNT - 1) this.showVictory();
+          if (this.floorIndex >= Ink.FLOOR_COUNT - 1) this.openEnding();
           else this.enterFloor(this.floorIndex + 1, true);
         }, 0.8);
       }
@@ -991,9 +1177,12 @@
       // 心阅：被动减伤
       amount = p.char.beforeDamage(amount, source);
 
-      // 聪明小狗：影犬先代承一部分
-      if (this.dog && this.dog.alive && amount > 0) {
-        const absorbed = this.dog.absorbDamage(amount);
+      // 聪明小狗：犬群依次代承，主犬优先。
+      const pack = (this.dogs && this.dogs.length) ? this.dogs : (this.dog ? [this.dog] : []);
+      for (const d of pack) {
+        if (amount <= 0) break;
+        if (!d || !d.alive) continue;
+        const absorbed = d.absorbDamage(amount);
         if (absorbed > 0) amount -= absorbed;
       }
       if (amount <= 0) return;
@@ -1003,6 +1192,7 @@
     onEnemyKilled(enemy, opts = {}) {
       this.runStats.kills++;
       if (this.player && this.player.char) this.player.char.onKill(enemy);
+      if (this.player && this.player.onWeaponKill) this.player.onWeaponKill(enemy);
       if (this.player && this.player.swift) this.player.swiftTimer = 2.0;
       if (opts.boss) {
         this.dropCoin(enemy.x, enemy.y, 24);
@@ -1014,6 +1204,20 @@
           this.dropHeart(enemy.x, enemy.y, opts.boss ? 14 : 8);
         }
       }
+    }
+
+    /** 主动技能：整群影犬一起冲锋、一起嘲讽。 */
+    commandDogPack() {
+      const pack = (this.dogs && this.dogs.length) ? this.dogs : (this.dog ? [this.dog] : []);
+      let any = false;
+      let revived = false;
+      for (const d of pack) {
+        if (!d) continue;
+        if (!d.alive) revived = true;
+        d.commandCharge();
+        any = true;
+      }
+      return { any, revived, count: pack.length };
     }
 
     onDogBroken() {
@@ -1028,6 +1232,8 @@
       this.dungeon.markCleared(this.floorData, this.room);
       this.runStats.bosses++;
       this.runStats.rooms++;
+      this.runStats.trueNames = Math.min(Ink.FLOOR_COUNT, this.runStats.trueNames + 1);
+      this.runStats.seals = Math.min(Ink.FLOOR_COUNT, this.runStats.seals + 1);
 
       // 层主倒下时，残余召唤物一并墨化。
       for (const e of this.enemies.slice()) {
@@ -1052,7 +1258,7 @@
         active: true,
         delay: 1.5,
         time: 0,
-        label: last ? '归途' : '下一层'
+        label: last ? '终局' : '下一层'
       };
       this.audio.setScene('play');
       this.audio.sfx('portal');
@@ -1169,7 +1375,11 @@
         });
       }
       if (this.player && !this.player.dead) ents.push(this.player);
-      if (this.dog) ents.push(this.dog);
+      if (this.dogs && this.dogs.length) {
+        for (const d of this.dogs) if (d) ents.push(d);
+      } else if (this.dog) {
+        ents.push(this.dog);
+      }
       for (const e of this.enemies) if (!e.dead) ents.push(e);
       ents.sort((a, b) => (a.y - b.y) || ((a.radius || 0) - (b.radius || 0)));
       for (const ent of ents) ent.draw(ctx, this);
@@ -1289,6 +1499,62 @@
       ctx.fillStyle = '#040308';
       ctx.fillRect(0, 0, 960, 600);
       ctx.restore();
+    }
+
+    // ── 序章：七幕，每幕约 11 秒；可点击/空格继续，也可跳过 ──
+    advanceIntro() {
+      if (this.state !== 'intro') return;
+      this.introIndex++;
+      this.introTimer = 0;
+      if (this.introIndex >= 7) this.finishIntro();
+    }
+
+    finishIntro() {
+      try { localStorage.setItem('court.introSeen', '1'); } catch (e) { /* 本地存储不可用时忽略 */ }
+      this.introSeen = true;
+      this.state = 'title';
+      this.audio.setScene('title');
+      this.input.reset();
+    }
+
+    skipIntro() {
+      this.finishIntro();
+    }
+
+    // ── 终局：白墨 / 朱笔 / 火 / 落座 ───────────────────
+    openEnding() {
+      this.state = 'ending';
+      this.runStats.floor = Ink.FLOOR_COUNT;
+      this.endingChoices = [
+        { id: 'white', label: '白墨', desc: '把一切写回空白。' },
+        { id: 'brush', label: '朱笔', desc: '以庭主之血，改最后一页。' },
+        { id: 'fire', label: '火', desc: '烧掉这座庭，连同自己的名字。' },
+        { id: 'seat', label: '落座', desc: '坐到那把一直空着的椅子上。' }
+      ];
+      this.endingResult = null;
+      this.audio.setScene('title');
+      this.audio.sfx('portal');
+      this.touchMove = { x: 0, y: 0 };
+      this.skillRequest = false;
+    }
+
+    chooseEnding(id) {
+      if (this.state !== 'ending' || this.endingResult) return;
+      const s = this.runStats;
+      let result;
+      if (id === 'seat' && s.fragments >= 5 && s.trueNames >= Ink.FLOOR_COUNT && s.seals >= 3) {
+        result = { id: 'tenth', name: '第十席', text: '九把椅子都空着。你坐下时，庭中多了一棵不属于五棵树的树。' };
+      } else if (id === 'fire') {
+        result = { id: 'burn', name: '焚稿', text: '火从最后一页烧起。没有人退稿，也没有人清稿——只有灰落在九层庭阶上。' };
+      } else if (id === 'brush') {
+        result = { id: 'proof', name: '校勘', text: '朱笔落下，错字被一一改正。你走出庭门时，身后传来九声很轻的“可”。' };
+      } else if (id === 'white' && s.fragments >= 3) {
+        result = { id: 'clean', name: '清稿', text: '白墨覆盖了所有批注。庭有五棵树，纸上一片干净。' };
+      } else {
+        result = { id: 'reject', name: '退稿', text: '你没能写完最后一页。庭门合上，稿纸被风吹回第一层。' };
+      }
+      this.endingResult = result;
+      this.audio.sfx(id === 'fire' ? 'explosion' : 'victory');
     }
 
     showVictory() {

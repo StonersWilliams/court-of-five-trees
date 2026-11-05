@@ -17,14 +17,18 @@
   const PAL = Ink.PAL;
 
   class ShadowDog {
-    constructor(game, player) {
+    constructor(game, player, opts = {}) {
       this.game = game;
       this.player = player;
+      this.companion = !!opts.companion;
+      this.slotAngle = opts.angle == null ? Math.PI * 0.72 : opts.angle;
+      this.slotDist = opts.dist || 62;
       this.x = player.x - 48;
       this.y = player.y + 26;
       this.radius = 14;
       this.alive = true;
-      this.maxHp = 46 + game.floor * 7;
+      // 同伴犬略脆，主犬保持原血量；避免八只都同样肉。
+      this.maxHp = (46 + game.floor * 7) * (this.companion ? 0.62 : 1);
       this.hp = this.maxHp;
       this.speed = 190;
       this.mode = 'follow'; // follow | fight | charge | dead
@@ -41,8 +45,8 @@
       this.isDog = true;
       this.bob = 0;
 
-      // 被动：登场时给主人一点护甲
-      if (player && player.addArmor) player.addArmor(4);
+      // 被动：只有主犬登场时给主人护甲，同伴犬不重复叠加。
+      if (!this.companion && player && player.addArmor) player.addArmor(4);
     }
 
     get target() {
@@ -116,10 +120,15 @@
         if (this.attackCd <= 0 && d < 430) this.shoot(target);
       } else {
         this.mode = 'follow';
-        const home = {
-          x: p.x - (p.facing || 1) * 52,
-          y: p.y + 26
-        };
+        const home = this.companion
+          ? {
+              x: p.x + Math.cos(this.slotAngle) * this.slotDist,
+              y: p.y + Math.sin(this.slotAngle) * this.slotDist * 0.8
+            }
+          : {
+              x: p.x - (p.facing || 1) * 52,
+              y: p.y + 26
+            };
         if (distToPlayer > 80) {
           const a = U.angleTo(this, home);
           this.x += Math.cos(a) * this.speed * dt;

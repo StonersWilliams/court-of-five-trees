@@ -1,16 +1,17 @@
 /**
  * src/dungeon/dungeon.js
  * ------------------------------------------------------------
- * 程序化地牢：3 层，每层 3 关 + 1 间商店。
+ * 程序化地牢：九层，每层七关 + 行商 / 随机事件。
  *
- * 布局：
- *   一进（普通关） → 二进（精英关） → 庭主（Boss）
- *                         └────────→ 行商（商店支线）
+ * 布局（每层）：
+ *   1 普通 → 2 普通 → 3 精英 → 4 普通 → 5 事件 → 6 普通 → 7 庭主
+ *                         └──────────────→ 行商（商店支线）
  *
  * 规则：
- *   - 每层第 1、2 关清怪后开门；第 2 关清完给一次机制被动三选一；
- *   - 第 3 关固定 Boss；Boss 房踏入即封门，只能走胜利传送门；
- *   - 每层从指定的三名庭主中随机一位；
+ *   - 第 2、4、6 关清完各给一次机制被动三选一；
+ *   - 第 5 关是随机事件房，处理完事件才会开门；
+ *   - 第 7 关固定庭主；Boss 房踏入即封门，只能走胜利传送门；
+ *   - 九层依次对应九位庭主，强度随层数继续上升；
  *   - 房间生成障碍物（树/柱/木箱/石头），Boss 房固定五棵庭树。
  */
 (function () {
@@ -19,18 +20,31 @@
   const Ink = window.Ink;
   const U = Ink.U;
 
-  const FLOOR_COUNT = 3;
+  const FLOOR_COUNT = 9;
 
+  // 九层，每层一位庭主；不再在三个 Boss 中随机，保证九位都能遇到。
   const BOSS_POOLS = [
-    ['truffle', 'sunstar', 'ninesun'],
-    ['peach', 'oga', 'june'],
-    ['tower', 'bigmon', 'edo']
+    ['truffle'],
+    ['sunstar'],
+    ['ninesun'],
+    ['peach'],
+    ['oga'],
+    ['june'],
+    ['tower'],
+    ['bigmon'],
+    ['edo']
   ];
 
   const ENEMY_POOLS = [
     ['slime', 'skull', 'spider'],
-    ['skull', 'spider', 'guard', 'gargoyle', 'tome'],
-    ['gargoyle', 'tome', 'guard', 'spider', 'skull']
+    ['skull', 'spider', 'guard'],
+    ['guard', 'gargoyle', 'tome', 'spider'],
+    ['gargoyle', 'tome', 'guard', 'skull'],
+    ['tome', 'gargoyle', 'spider', 'guard'],
+    ['guard', 'tome', 'gargoyle', 'skull'],
+    ['gargoyle', 'guard', 'tome', 'spider'],
+    ['tome', 'gargoyle', 'guard', 'skull'],
+    ['all']
   ];
 
   const ROOM_NAMES = [
@@ -50,6 +64,15 @@
 
   const SHOP_NAMES = ['木匣行商', '纸灯货郎', '无主摊位'];
   const BOSS_ROOM_FALLBACK = ['五树庭'];
+  const EVENT_NAMES = {
+    inkwell: '夹页书房',
+    rain: '雨中回廊',
+    chair: '未编号的教室',
+    manuscript: '废稿堆',
+    tea: '庭外茶摊',
+    bell: '无风钟楼'
+  };
+  const EVENT_POOL = ['inkwell', 'rain', 'chair', 'manuscript', 'tea', 'bell'];
 
   function makeRng(seed) {
     let s = (seed >>> 0) || 1;
@@ -85,21 +108,29 @@
     generateFloor(floorIndex) {
       const rng = this.rng;
       const floorNumber = floorIndex + 1;
-      const theme = Ink.Art.THEMES[floorIndex];
-      const bossId = rng.pick(BOSS_POOLS[floorIndex]);
+      const theme = Ink.Art.THEMES[floorIndex % Ink.Art.THEMES.length];
+      const bossId = BOSS_POOLS[floorIndex][0];
       const bossConf = (Ink.Bosses && Ink.Bosses[bossId]) || null;
       const shopY = rng.chance(0.5) ? 0 : 2;
 
       const rooms = [];
-      const stage1 = this._makeRoom(floorIndex, rooms.length, 'battle', 0, 1, 1, rng);
+      // 第二庭起，普通关卡有概率变成精英房，让每层跑图不是完全固定。
+      const encounter = () => (floorIndex >= 1 && rng.chance(0.16) ? 'elite' : 'battle');
+      const stage1 = this._makeRoom(floorIndex, rooms.length, encounter(), 0, 1, 1, rng);
       rooms.push(stage1);
-      const stage2 = this._makeRoom(floorIndex, rooms.length, 'battle', 1, 1, 2, rng);
+      const stage2 = this._makeRoom(floorIndex, rooms.length, encounter(), 1, 1, 2, rng);
       rooms.push(stage2);
       const stage3 = this._makeRoom(floorIndex, rooms.length, 'elite', 2, 1, 3, rng);
       rooms.push(stage3);
-      const stage4 = this._makeRoom(floorIndex, rooms.length, 'battle', 3, 1, 4, rng);
+      const stage4 = this._makeRoom(floorIndex, rooms.length, encounter(), 3, 1, 4, rng);
       rooms.push(stage4);
-      const bossRoom = this._makeRoom(floorIndex, rooms.length, 'boss', 4, 1, 5, rng);
+      const eventRoom = this._makeRoom(floorIndex, rooms.length, 'event', 4, 1, 5, rng);
+      eventRoom.eventId = rng.pick(EVENT_POOL);
+      eventRoom.name = EVENT_NAMES[eventRoom.eventId];
+      rooms.push(eventRoom);
+      const stage6 = this._makeRoom(floorIndex, rooms.length, encounter(), 5, 1, 6, rng);
+      rooms.push(stage6);
+      const bossRoom = this._makeRoom(floorIndex, rooms.length, 'boss', 6, 1, 7, rng);
       bossRoom.name = (bossConf && bossConf.roomName) || rng.pick(BOSS_ROOM_FALLBACK);
       rooms.push(bossRoom);
       const shop = this._makeRoom(floorIndex, rooms.length, 'shop', 2, shopY, 0, rng);
@@ -108,32 +139,37 @@
 
       stage1.visited = true;
       stage1.cleared = false;
+      eventRoom.cleared = false;
       shop.cleared = true;
       shop.visited = false;
 
       this._connect(stage1, stage2);
       this._connect(stage2, stage3);
       this._connect(stage3, stage4);
-      this._connect(stage4, bossRoom);
+      this._connect(stage4, eventRoom);
+      this._connect(eventRoom, stage6);
+      this._connect(stage6, bossRoom);
       this._connect(stage3, shop);
 
       const floor = {
         index: floorIndex,
         number: floorNumber,
         theme,
-        themeIndex: floorIndex,
-        name: theme.name,
+        themeIndex: floorIndex % Ink.Art.THEMES.length,
+        name: '第' + floorNumber + '庭 · ' + theme.name,
         sub: theme.sub || '',
         rooms,
         startRoomId: stage1.id,
         bossRoomId: bossRoom.id,
         shopRoomId: shop.id,
-        spineIds: [stage1.id, stage2.id, stage3.id, stage4.id, bossRoom.id],
+        eventRoomId: eventRoom.id,
+        spineIds: [stage1.id, stage2.id, stage3.id, stage4.id, eventRoom.id, stage6.id, bossRoom.id],
         bossId,
         bossUnlocked: false,
         passiveOffered2: false,
         passiveOffered4: false,
-        mapW: 5,
+        passiveOffered6: false,
+        mapW: 7,
         mapH: 3
       };
 
@@ -154,10 +190,12 @@
     _makeRoom(floorIndex, index, type, mapX, mapY, stage, rng) {
       const id = 'f' + (floorIndex + 1) + 'r' + index;
       let name;
-      if (type === 'battle') name = rng.pick(ROOM_NAMES[floorIndex][0]);
-      else if (type === 'elite') name = rng.pick(ROOM_NAMES[floorIndex][1]);
+      const nameSet = ROOM_NAMES[floorIndex % ROOM_NAMES.length];
+      if (type === 'battle') name = rng.pick(nameSet[0]);
+      else if (type === 'elite') name = rng.pick(nameSet[1]);
       else if (type === 'boss') name = rng.pick(BOSS_ROOM_FALLBACK);
       else if (type === 'shop') name = rng.pick(SHOP_NAMES);
+      else if (type === 'event') name = '奇遇';
       else name = '无名庭';
 
       return {
@@ -242,12 +280,17 @@
 
     // ── 敌人生成计划 ──────────────────────────────────────
     _buildSpawnPlan(room, floorIndex, rng) {
-      if (room.type === 'boss' || room.type === 'shop') return [];
+      if (room.type === 'boss' || room.type === 'shop' || room.type === 'event') return [];
       const eliteRoom = room.type === 'elite';
-      const base = (room.stage === 3 ? 4 : room.stage === 4 ? 3 : 3) + floorIndex + rng.int(0, 1);
+      // 九层逐层加量；第 3 关精英、第 6 关是庭主前最后一战，更密。
+      const base = 3 + floorIndex + rng.int(0, 1) +
+        (room.stage === 3 ? 1 : 0) + (room.stage === 6 ? 2 : 0);
       const normalCount = Math.max(2, base - (eliteRoom ? 1 : 0));
-      const count = normalCount + (eliteRoom ? 1 : 0);
-      const pool = ENEMY_POOLS[Math.min(ENEMY_POOLS.length - 1, floorIndex)];
+      const count = Math.min(14, normalCount + (eliteRoom ? 1 : 0));
+      let pool = ENEMY_POOLS[Math.min(ENEMY_POOLS.length - 1, floorIndex)];
+      if (pool.length === 1 && pool[0] === 'all') {
+        pool = ['slime', 'skull', 'gargoyle', 'spider', 'tome', 'guard'];
+      }
       const A = Ink.ARENA;
       const plan = [];
       const doorPts = Object.values(Ink.DOOR_POINTS);
@@ -301,6 +344,13 @@
         return [
           this._obstacle('crate', 160, 180, 0, 14),
           this._obstacle('crate', 800, 470, 1, 14)
+        ];
+      }
+      if (room.type === 'event') {
+        // 事件房留出中央空场，只在两侧放一点叙事道具。
+        return [
+          this._obstacle('stone', 250, 220, 0, 15),
+          this._obstacle('crate', 760, 440, 1, 14)
         ];
       }
 
