@@ -955,8 +955,87 @@
       for (let i = 0; i < 6; i++) {
         dot(c, 5 + i * 3, 15 + (i % 3), '#ff6f9c');
       }
+    },
+
+    // 纸蛾：浅色双翼 + 扇形鳞粉，悬浮感强。
+    moth(c, frame) {
+      const bob = frame ? 0 : 1;
+      const wing = frame ? 0 : 1;
+      px(c, 0 + wing, 4 - bob, 6, 3, '#7b5f88');
+      px(c, 1 + wing, 3 - bob, 4, 2, '#c9b0cf');
+      px(c, 10 - wing, 4 - bob, 6, 3, '#7b5f88');
+      px(c, 11 - wing, 3 - bob, 4, 2, '#c9b0cf');
+      px(c, 1 + wing, 6 - bob, 3, 3, '#a88bb9');
+      px(c, 12 - wing, 6 - bob, 3, 3, '#a88bb9');
+      dot(c, 2 + wing, 4 - bob, '#fff0c0');
+      dot(c, 13 - wing, 4 - bob, '#fff0c0');
+      // 身体
+      px(c, 6, 4 - bob, 4, 8, '#4b3559');
+      px(c, 7, 5 - bob, 2, 5, '#8d6f9f');
+      // 头与触角
+      px(c, 6, 2 - bob, 4, 3, '#3a2946');
+      px(c, 5, 0 - bob, 1, 3, '#d8c3a3');
+      px(c, 10, 0 - bob, 1, 3, '#d8c3a3');
+      dot(c, 6, 2 - bob, '#ffe08a');
+      dot(c, 9, 2 - bob, '#ffe08a');
+      // 尾粉
+      dot(c, 5, 13, '#c9b0cf');
+      dot(c, 10, 13, '#c9b0cf');
+    },
+
+    // 铜铃傀：钟形身躯、红绳与一只竖眼。
+    bell(c, frame) {
+      const bob = frame ? 0 : 1;
+      // 顶部挂环
+      px(c, 7, 0 - bob, 2, 2, '#8a6a3a');
+      px(c, 5, 2 - bob, 6, 1, '#b28a4a');
+      // 钟体
+      px(c, 3, 4 - bob, 10, 7, '#7d5a2f');
+      px(c, 4, 3 - bob, 8, 1, '#c49a55');
+      px(c, 4, 5 - bob, 8, 5, '#b98a45');
+      px(c, 5, 6 - bob, 6, 3, '#d9ae63');
+      px(c, 3, 10 - bob, 10, 2, '#5d4022');
+      // 竖眼
+      px(c, 7, 5 - bob, 2, 3, '#241a10');
+      dot(c, 7, 6 - bob, '#ffdf8a');
+      // 红绳与铃舌
+      px(c, 7, 11 - bob, 2, 3, '#a33b3b');
+      dot(c, 8, 14 - bob, '#e9c36a');
+      px(c, 5, 12, 1, 2, '#7d2d2d');
+      px(c, 10, 12, 1, 2, '#7d2d2d');
+    },
+
+    // 书蠹：低矮鼠形，长尾、圆耳、门牙。
+    rat(c, frame) {
+      const bob = frame ? 0 : 1;
+      // 尾巴
+      px(c, 12, 10 + bob, 3, 1, '#a77b58');
+      px(c, 14, 8 + bob, 1, 2, '#c79b72');
+      // 身体
+      px(c, 3, 7 - bob, 9, 5, '#8b6548');
+      px(c, 4, 8 - bob, 7, 3, '#a77b58');
+      px(c, 3, 11 - bob, 7, 2, '#5e4430');
+      // 头
+      px(c, 9, 5 - bob, 5, 5, '#9b7353');
+      // 耳朵
+      px(c, 10, 3 - bob, 2, 2, '#b98a72');
+      dot(c, 10, 3 - bob, '#f0b8b8');
+      // 眼与牙
+      dot(c, 12, 6 - bob, '#ffdf8a');
+      px(c, 12, 8 - bob, 1, 2, '#fff3d6');
+      // 脚
+      dot(c, 4, 12, '#4b3525');
+      dot(c, 8, 12, '#4b3525');
+      // 纸页碎屑
+      dot(c, 2, 9, '#d8c3a3');
+      dot(c, 15, 12, '#d8c3a3');
     }
   };
+
+  // 三种新小怪画在 Boss 画师区旁边，但登记到敌人表里供 `enemy:*` 使用。
+  ENEMY_BUILDERS.moth = BOSS_BUILDERS.moth;
+  ENEMY_BUILDERS.bell = BOSS_BUILDERS.bell;
+  ENEMY_BUILDERS.rat = BOSS_BUILDERS.rat;
 
   // ═══════════════════════════════════════════════════════════
   //  精灵缓存与绘制

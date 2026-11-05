@@ -37,13 +37,13 @@
 
   const ENEMY_POOLS = [
     ['slime', 'skull', 'spider'],
-    ['skull', 'spider', 'guard'],
-    ['guard', 'gargoyle', 'tome', 'spider'],
-    ['gargoyle', 'tome', 'guard', 'skull'],
-    ['tome', 'gargoyle', 'spider', 'guard'],
-    ['guard', 'tome', 'gargoyle', 'skull'],
-    ['gargoyle', 'guard', 'tome', 'spider'],
-    ['tome', 'gargoyle', 'guard', 'skull'],
+    ['skull', 'spider', 'moth', 'guard'],
+    ['guard', 'gargoyle', 'tome', 'rat'],
+    ['gargoyle', 'tome', 'moth', 'bell'],
+    ['tome', 'gargoyle', 'spider', 'bell'],
+    ['guard', 'tome', 'moth', 'rat'],
+    ['gargoyle', 'guard', 'bell', 'spider'],
+    ['tome', 'gargoyle', 'guard', 'bell', 'moth'],
     ['all']
   ];
 
@@ -153,6 +153,8 @@
       const eventRoom = this._makeRoom(floorIndex, rooms.length, 'event', 5, 1, 5, rng);
       eventRoom.eventId = rng.pick(EVENT_POOL);
       eventRoom.name = EVENT_NAMES[eventRoom.eventId];
+      eventRoom.eventElite = rng.chance(0.58);
+      eventRoom.eventOpened = false;
       rooms.push(eventRoom);
       const stage6 = this._makeRoom(floorIndex, rooms.length, encounter(), 6, 1, 6, rng);
       rooms.push(stage6);
@@ -162,6 +164,17 @@
       const shop = this._makeRoom(floorIndex, rooms.length, 'shop', 3, shopY, 0, rng);
       shop.name = rng.pick(SHOP_NAMES);
       rooms.push(shop);
+
+      // 两条可选侧庭：一条从第 2 关上楼，一条从第 4 关下楼。
+      // 它们不在主线 spine 上，不清也能打庭主，但会提供额外精英/补给。
+      const sideA = this._makeRoom(floorIndex, rooms.length, rng.chance(0.55) ? 'elite' : 'battle', 2, 0, 0, rng);
+      sideA.name = '侧庭 · ' + rng.pick(['上层回廊', '悬木夹道', '无灯偏厅']);
+      sideA.branch = true;
+      rooms.push(sideA);
+      const sideB = this._makeRoom(floorIndex, rooms.length, rng.chance(0.6) ? 'elite' : 'battle', 4, 2, 0, rng);
+      sideB.name = '侧庭 · ' + rng.pick(['下层石室', '落雨偏院', '旧井暗道']);
+      sideB.branch = true;
+      rooms.push(sideB);
 
       stage1.visited = false;
       stage1.cleared = false;
@@ -177,6 +190,8 @@
       this._connect(eventRoom, stage6);
       this._connect(stage6, bossRoom);
       this._connect(stage3, shop);
+      this._connect(stage2, sideA);
+      this._connect(stage4, sideB);
 
       const floor = {
         index: floorIndex,
@@ -191,6 +206,7 @@
         bossRoomId: bossRoom.id,
         shopRoomId: shop.id,
         eventRoomId: eventRoom.id,
+        branchRoomIds: [sideA.id, sideB.id],
         spineIds: [stage1.id, stage2.id, stage3.id, stage4.id, eventRoom.id, stage6.id, bossRoom.id],
         bossId,
         bossUnlocked: false,
@@ -312,7 +328,29 @@
 
     // ── 敌人生成计划 ──────────────────────────────────────
     _buildSpawnPlan(room, floorIndex, rng) {
-      if (room.type === 'boss' || room.type === 'shop' || room.type === 'event' || room.type === 'prep') return [];
+      if (room.type === 'boss' || room.type === 'shop' || room.type === 'prep') return [];
+      if (room.type === 'event') {
+        // 奇遇房可能由一只守室精英（小 Boss）把门，清掉后才出现事件选项。
+        if (!room.eventElite) return [];
+        const A = Ink.ARENA;
+        let ep = ENEMY_POOLS[Math.min(ENEMY_POOLS.length - 1, floorIndex)];
+        if (ep.length === 1 && ep[0] === 'all') ep = ['slime', 'skull', 'gargoyle', 'spider', 'tome', 'guard', 'moth', 'bell', 'rat'];
+        const plan = [{
+          type: rng.pick(ep),
+          elite: true,
+          x: A.x + A.w / 2 + rng.int(-90, 90),
+          y: A.y + A.h / 2 + rng.int(-50, 50)
+        }];
+        for (let i = 0; i < 1 + Math.floor(floorIndex / 3); i++) {
+          plan.push({
+            type: rng.pick(['skull', 'spider', 'slime']),
+            elite: false,
+            x: A.x + 110 + rng() * (A.w - 220),
+            y: A.y + 100 + rng() * (A.h - 200)
+          });
+        }
+        return plan;
+      }
       const eliteRoom = room.type === 'elite';
       // 九层逐层加量；第 3 关精英、第 6 关是庭主前最后一战，更密。
       const base = 3 + floorIndex * 2 + rng.int(0, 1) +
@@ -321,7 +359,7 @@
       const count = Math.min(18, normalCount + (eliteRoom ? 1 : 0));
       let pool = ENEMY_POOLS[Math.min(ENEMY_POOLS.length - 1, floorIndex)];
       if (pool.length === 1 && pool[0] === 'all') {
-        pool = ['slime', 'skull', 'gargoyle', 'spider', 'tome', 'guard'];
+        pool = ['slime', 'skull', 'gargoyle', 'spider', 'tome', 'guard', 'moth', 'bell', 'rat'];
       }
       const A = Ink.ARENA;
       const plan = [];

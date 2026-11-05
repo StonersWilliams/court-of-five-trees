@@ -187,7 +187,7 @@
       Ink.FX.field(this.game, {
         x: p.x, y: p.y, kind,
         radius: radius || 58,
-        delay: delay === undefined ? 0.35 : delay,
+        delay: delay === undefined ? 0.7 : Math.max(0.7, delay * 1.8),
         life: life || 2.4,
         damage: opts.damage || this.damage * 0.55,
         tick: opts.tick || 0.45,
@@ -334,7 +334,7 @@
           this.fieldAt('holy', target.x + Math.cos(a) * d, target.y + Math.sin(a) * d, 58, 0.55, 2.4, { slow: 0.7 });
         }
       } else {
-        this.windup(0.6, () => {
+        this.windup(1.05, () => {
           this.ring(20, 210, { color: '#ffe08a' });
           this.aoeAt(this.x, this.y, 130, this.damage * 1.1);
         }, { type: 'circle', radius: 140, color: '#ffd36b' });
@@ -375,7 +375,7 @@
         this.hp = Math.min(this.maxHp, this.hp + this.maxHp * 0.04);
         Ink.FX.text(this.game, '桃柱·回春', this.x, this.y - 70, '#ffb7c8', 14, 1.0);
       } else {
-        this.windup(0.7, () => {
+        this.windup(1.10, () => {
           this.aoeAt(this.x, this.y, 145, this.damage * 1.2);
           this.ring(12, 170, { color: '#ffd0dd', visual: 'petal' });
         }, { type: 'circle', radius: 150, color: '#ff9bb0' });
@@ -501,7 +501,7 @@
         }
         this.fieldAt('poison', target.x, target.y, 60, 0.35, 2.2);
       } else {
-        this.windup(0.7, () => {
+        this.windup(1.10, () => {
           this.aoeAt(this.x, this.y, 155, this.damage * 1.3);
           this.ring(20, 190, { color: '#b6e08a', visual: 'spike' });
         }, { type: 'circle', radius: 160, color: '#8ef0c8' });

@@ -314,7 +314,8 @@
 
     swingWeapon(def) {
       const range = def.range || 170;
-      const arc = def.arc || 1.5;
+      // 近战统一为扇形横扫：最小约 109°，避免变成“点状攻击”。
+      const arc = Math.max(1.9, def.arc || 1.5);
       const a = this.aimAngle;
       const dmg = (def.damage || 12) * (def.charged ? 1.85 : 1) * this.damageMultiplier();
       let hits = 0;
@@ -328,6 +329,14 @@
           angle: a, knockback: def.knockback || 55
         });
         this.onWeaponHit(e, null, { def });
+        hits++;
+      }
+      // 近战挥击也能砸开木箱：扇形范围内的可破坏物一并结算。
+      for (const o of this.game.obstacles || []) {
+        if (o.broken || !o.destructible) continue;
+        if (U.dist(this.x, this.y, o.x, o.y) > range + o.r) continue;
+        if (Math.abs(U.angleDiff(U.angleTo(this, o), a)) > arc / 2) continue;
+        this.game.damageObstacle(o, dmg);
         hits++;
       }
       // 近战挥击清除弹幕（这是“文房兵器”的核心防御价值）。
@@ -1011,13 +1020,26 @@
       }
       const ok = this.char.useSkill();
       if (ok) {
+        const accent = this.def.accent || PAL.gold;
         this.skillCd = this.skillCdMax;
-        this.skillFlash = 0.28;
-        this.game.addShake(2.5, 0.16);
+        this.skillFlash = 0.55;
+        this.game.addShake(3.2, 0.18);
         Ink.FX.ring(this.game, {
-          x: this.x, y: this.y - 4, r0: 10, r1: 62, life: 0.36,
-          color: this.def.accent || PAL.gold, width: 2
+          x: this.x, y: this.y - 4, r0: 8, r1: 62, life: 0.18,
+          color: '#fff6dc', width: 3
         });
+        Ink.FX.ring(this.game, {
+          x: this.x, y: this.y - 4, r0: 18, r1: 92, life: 0.5,
+          color: accent, width: 2
+        });
+        Ink.FX.ring(this.game, {
+          x: this.x, y: this.y - 4, r0: 30, r1: 74, life: 0.34,
+          color: accent, width: 6
+        });
+        Ink.FX.burst(this.game, this.x, this.y - 3, [accent, '#fff6dc'], 22, 155, {
+          size: 3, glow: true, life: 0.55
+        });
+        Ink.FX.text(this.game, this.def.skillName || '技能', this.x, this.y - 52, accent, 15, 0.9);
         this.game.audio.sfx('skill');
       }
       return ok;
@@ -1189,13 +1211,31 @@
 
       // 技能释放瞬间的通用光爆，强化“按下技能”的反馈
       if (this.skillFlash > 0) {
+        const k = 1 - this.skillFlash / 0.55;
+        const accent = this.def.accent || PAL.gold;
         ctx.save();
-        ctx.globalAlpha = this.skillFlash / 0.28 * 0.5;
-        ctx.strokeStyle = this.def.accent || PAL.gold;
+        ctx.globalAlpha = (1 - k) * 0.75;
+        ctx.strokeStyle = accent;
         ctx.lineWidth = 3;
         ctx.beginPath();
-        ctx.arc(this.x, this.y - 2, 30 + (0.28 - this.skillFlash) * 180, 0, U.TAU);
+        ctx.arc(this.x, this.y - 2, 28 + k * 96, 0, U.TAU);
         ctx.stroke();
+        ctx.globalAlpha = (1 - k) * 0.45;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y - 2, 38 + k * 68, 0, U.TAU);
+        ctx.stroke();
+        // 旋转符钉：让每个角色的技能都有“开阵”的仪式感。
+        for (let i = 0; i < 8; i++) {
+          const a = game.time * 2.2 + i * Math.PI / 4;
+          const r = 42 + k * 54;
+          ctx.globalAlpha = (1 - k) * 0.8;
+          ctx.fillStyle = '#fff6dc';
+          ctx.fillRect(
+            this.x + Math.cos(a) * r - 1.5,
+            this.y - 2 + Math.sin(a) * r - 1.5, 3, 3
+          );
+        }
         ctx.restore();
       }
 

@@ -47,12 +47,28 @@
       id: 'guard', name: '枪俑', hp: 72, speed: 55, damage: 11, radius: 17, xp: 9,
       scale: 3, ai: 'lancer', color: '#ffb35c', role: '远程·穿刺',
       desc: '陪葬的持枪陶俑，会用一道笔直的枪气封锁走位。'
+    },
+    moth: {
+      id: 'moth', name: '纸蛾', hp: 38, speed: 82, damage: 8, radius: 14, xp: 7,
+      scale: 3, ai: 'fan', color: '#c7b6ff', role: '远程·扇射',
+      desc: '从旧书页里抖落的纸蛾，会突然展开三枚鳞粉扇面。'
+    },
+    bell: {
+      id: 'bell', name: '铜铃傀', hp: 68, speed: 40, damage: 10, radius: 17, xp: 10,
+      scale: 3, ai: 'pulse', color: '#d8c07a', role: '远程·震荡',
+      desc: '无风自响的铜铃，每走一步都在地上压出一圈音浪。'
+    },
+    rat: {
+      id: 'rat', name: '书蠹', hp: 24, speed: 148, damage: 6, radius: 11, xp: 5,
+      scale: 2.6, ai: 'lunger', color: '#a98b6a', role: '高速·骚扰',
+      desc: '啃穿书脊的小蠹虫，会贴着地面突然弹射咬人。'
     }
   };
 
   const AI_LABELS = {
     slime: '墨团', shooter: '飞颅', charger: '石像鬼',
-    lunger: '影蛛', blinker: '咒书', lancer: '枪俑'
+    lunger: '影蛛', blinker: '咒书', lancer: '枪俑',
+    fan: '纸蛾', pulse: '铜铃傀', rat: '书蠹'
   };
 
   class Enemy {
@@ -176,6 +192,8 @@
         case 'lunger': this._aiLunger(dt, target); break;
         case 'blinker': this._aiBlinker(dt, target); break;
         case 'lancer': this._aiLancer(dt, target); break;
+        case 'fan': this._aiFan(dt, target); break;
+        case 'pulse': this._aiPulse(dt, target); break;
         default: this._aiSlime(dt, target); break;
       }
 
@@ -372,6 +390,67 @@
           source: this, visual: 'orb', life: 3.4, offset
         });
         this.game.audio.sfx('shoot');
+      }
+    }
+
+    // ── 纸蛾：三枚鳞粉扇面 ────────────────────────────────
+    _aiFan(dt, target) {
+      const d = U.dist(this.x, this.y, target.x, target.y);
+      if (this.state === 'windup') {
+        this.stateTimer -= dt;
+        this.aimAngle = U.angleTo(this, target);
+        if (this.stateTimer <= 0) {
+          this.state = 'idle';
+          this.attackCd = U.rand(1.6, 2.0);
+          Ink.spread(this.game, this.x, this.y, this.aimAngle, 3, 0.34, {
+            owner: 'enemy', source: this, damage: this.damage,
+            speed: 205, radius: 4, color: this.color, visual: 'petal', life: 2.4
+          });
+          Ink.FX.burst(this.game, this.x, this.y, this.color, 6, 70, { size: 2, glow: true });
+        }
+        return;
+      }
+      if (d > 260) this._moveToward(target, this.maxSpeed, dt);
+      else if (d < 160) this._moveAway(target, this.maxSpeed, dt);
+      else this._strafe(target, this.maxSpeed * 0.7, dt, Math.sin(this.time) > 0 ? 1 : -1);
+      this.attackCd -= dt;
+      if (this.attackCd <= 0) {
+        this.state = 'windup';
+        this.stateTimer = 0.42;
+        this.aimAngle = U.angleTo(this, target);
+      }
+    }
+
+    // ── 铜铃傀：先摇铃，再放环形音浪 ──────────────────────
+    _aiPulse(dt, target) {
+      const d = U.dist(this.x, this.y, target.x, target.y);
+      if (this.state === 'windup') {
+        this.stateTimer -= dt;
+        if (this.stateTimer <= 0) {
+          this.state = 'idle';
+          this.attackCd = U.rand(2.4, 3.0);
+          Ink.radial(this.game, this.x, this.y, 8, 150, {
+            owner: 'enemy', source: this, damage: this.damage,
+            radius: 4, color: this.color, visual: 'orb', life: 2.8
+          });
+          Ink.FX.ring(this.game, {
+            x: this.x, y: this.y, r0: 8, r1: 74, life: 0.35,
+            color: this.color, width: 3
+          });
+          this.game.audio.sfx('skill');
+        }
+        return;
+      }
+      if (d > 210) this._moveToward(target, this.maxSpeed, dt);
+      else if (d < 120) this._moveAway(target, this.maxSpeed * 0.7, dt);
+      this.attackCd -= dt;
+      if (this.attackCd <= 0) {
+        this.state = 'windup';
+        this.stateTimer = 0.62;
+        Ink.FX.ring(this.game, {
+          x: this.x, y: this.y, r0: 6, r1: 52, life: 0.55,
+          color: this.color, width: 2
+        });
       }
     }
 

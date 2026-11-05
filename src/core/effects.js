@@ -491,9 +491,12 @@
     },
 
     particle(game, o) {
+      if (!o) return null;
+      // 兼容旧代码传入的裸对象：统一包装成 Particle，避免更新循环崩溃。
+      const p = typeof o.update === 'function' ? o : new Particle(o);
       if (this.particles.length >= this.MAX_PARTICLES) this.particles.shift();
-      this.particles.push(o);
-      return o;
+      this.particles.push(p);
+      return p;
     },
 
     burst(game, x, y, color, count = 10, speed = 130, opts = {}) {

@@ -581,6 +581,7 @@
     openEvent() {
       const room = this.room;
       if (!room || room.type !== 'event') return;
+      room.eventOpened = true;
       const def = EVENT_DEFS[room.eventId] || EVENT_DEFS.inkwell;
       this.eventChoices = def.choices;
       this.eventNotice = def.text;
@@ -817,6 +818,10 @@
         return;
       }
       if (target.type === 'event' && !target.cleared) {
+        if (target.eventElite && this.enemies.some((e) => !e.dead)) {
+          this.ui.showToast('守室精英拦路 · 先清场再赴奇遇', '#ff9b7a', 1.7);
+          return;
+        }
         this.openEvent();
         return;
       }
@@ -854,26 +859,33 @@
     }
 
     /** 投射物撞上障碍；返回 true 表示这次投射物已消耗。 */
+    /** 对可破坏障碍结算伤害；近战与投射物共用。 */
+    damageObstacle(o, amount) {
+      if (!o || o.broken || !o.destructible) return false;
+      o.hp -= Math.max(1, amount || 1);
+      const broke = o.hp <= 0;
+      FX.burst(this, o.x, o.y, broke ? '#ffd36b' : '#c9a276', 6, 90, {
+        size: 2, glow: broke
+      });
+      if (broke) {
+        o.broken = true;
+        FX.explosion(this, o.x, o.y, 26, '#d9b184');
+        this.dropCoin(o.x, o.y, U.randInt(2, 5));
+        this.audio.sfx('kill');
+      } else {
+        this.audio.sfx('hit');
+      }
+      return broke;
+    }
+
     projectileHitObstacle(pr) {
       if (!pr || !this.obstacles.length) return false;
       for (const o of this.obstacles) {
         if (o.broken) continue;
         if (U.dist(pr.x, pr.y, o.x, o.y) > o.r + pr.radius) continue;
 
-        const canBreak = o.destructible && pr.owner === 'player';
-        if (canBreak) {
-          o.hp -= Math.max(1, pr.damage || 1);
-          FX.burst(this, pr.x, pr.y, o.hp <= 0 ? '#ffd36b' : '#c9a276', 6, 90, {
-            size: 2, glow: o.hp <= 0
-          });
-          if (o.hp <= 0) {
-            o.broken = true;
-            FX.explosion(this, o.x, o.y, 26, '#d9b184');
-            this.dropCoin(o.x, o.y, U.randInt(2, 5));
-            this.audio.sfx('kill');
-          } else {
-            this.audio.sfx('hit');
-          }
+        if (o.destructible && pr.owner === 'player') {
+          this.damageObstacle(o, pr.damage);
         } else {
           FX.burst(this, pr.x, pr.y, '#d7c39a', 4, 60, { size: 2 });
           this.audio.sfx('hit');
@@ -888,7 +900,8 @@
       if (room.enemiesSpawned) return;
       room.enemiesSpawned = true;
       room.clearTimer = 0;
-      if (room.cleared || room.type === 'shop' || room.type === 'event') return;
+      if (room.cleared || room.type === 'shop') return;
+      if (room.type === 'event' && !room.eventElite) return;
 
       if (room.type === 'boss') {
         this.boss = Ink.spawnBoss(this, this.floorData.bossId, 480, 270);
@@ -1120,7 +1133,7 @@
 
     checkRoomClear(dt) {
       const room = this.room;
-      if (!room || room.cleared || room.type === 'boss' || room.type === 'event' || !room.enemiesSpawned) return;
+      if (!room || room.cleared || room.type === 'boss' || !room.enemiesSpawned) return;
       let alive = false;
       for (const e of this.enemies) {
         if (!e.dead) { alive = true; break; }
@@ -1131,6 +1144,16 @@
       }
       room.clearTimer = (room.clearTimer || 0) + dt;
       if (room.clearTimer < 0.38) return;
+
+      // 事件房：守室精英清完后弹出事件，不直接算作已清。
+      if (room.type === 'event') {
+        if (!room.eventOpened) {
+          room.eventOpened = true;
+          this.ui.showToast('守室精英已破 · 奇遇显现', '#8fd6ff', 1.4);
+          this.openEvent();
+        }
+        return;
+      }
 
       room.cleared = true;
       this.dungeon.markCleared(this.floorData, room);

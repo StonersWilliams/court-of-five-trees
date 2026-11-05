@@ -697,7 +697,7 @@
       text(ctx, 'MIT License · 零依赖 · 程序化像素美术 / WebAudio 音效', 36, 580, {
         size: 9, color: 'rgba(109,99,136,.7)'
       });
-      text(ctx, 'v3.1', 924, 580, { size: 9, color: 'rgba(109,99,136,.7)', align: 'right' });
+      text(ctx, 'v3.1.1', 924, 580, { size: 9, color: 'rgba(109,99,136,.7)', align: 'right' });
     }
 
     // ── 角色选择 ──────────────────────────────────────────
@@ -1041,14 +1041,14 @@
         size: 9, color: PAL.parchment2, align: 'right'
       });
 
-      const cellW = 24, cellH = 23;
-      const ox = px + 14, oy = py + 26;
+      const cellW = 21, cellH = 20;
+      const ox = px + 12, oy = py + 27;
       const byId = {};
       for (const r of floor.rooms) byId[r.id] = r;
 
       const pos = (r) => ({ x: ox + r.mapX * cellW + 10, y: oy + r.mapY * cellH + 7 });
 
-      // 连接线
+      // 连接线：双端都未探索的通道被迷雾遮住；只探到一端的画成虚线。
       ctx.save();
       for (const r of floor.rooms) {
         const a = pos(r);
@@ -1056,13 +1056,19 @@
           if (id < r.id) continue; // 每条只画一次
           const b = byId[id];
           if (!b) continue;
+          if (!r.visited && !b.visited) continue;
           const bp = pos(b);
-          ctx.strokeStyle = r.cleared && b.cleared ? 'rgba(232,193,112,.45)' : 'rgba(109,99,136,.3)';
-          ctx.lineWidth = 2;
+          const known = r.visited && b.visited;
+          ctx.strokeStyle = known
+            ? (r.cleared && b.cleared ? 'rgba(232,193,112,.45)' : 'rgba(109,99,136,.5)')
+            : 'rgba(143,214,255,.22)';
+          ctx.lineWidth = known ? 2 : 1;
+          if (!known) ctx.setLineDash([2, 3]);
           ctx.beginPath();
           ctx.moveTo(a.x, a.y);
           ctx.lineTo(bp.x, bp.y);
           ctx.stroke();
+          ctx.setLineDash([]);
         }
       }
       ctx.restore();
@@ -1074,10 +1080,16 @@
         let fill = 'rgba(48,40,68,.9)';
         let border = 'rgba(109,99,136,.65)';
         if (r.cleared) { fill = 'rgba(116,214,177,.22)'; border = 'rgba(116,214,177,.65)'; }
-        if (r.type === 'boss') { fill = 'rgba(217,79,92,.2)'; border = 'rgba(255,125,125,.75)'; }
-        if (r.type === 'elite') { fill = 'rgba(232,193,112,.16)'; border = 'rgba(232,193,112,.75)'; }
-        if (r.type === 'shop') { fill = 'rgba(255,211,107,.18)'; border = 'rgba(255,211,107,.8)'; }
-        if (r.type === 'event') { fill = 'rgba(143,214,255,.16)'; border = 'rgba(143,214,255,.75)'; }
+        if (!r.visited) {
+          // 未探索房间只保留轮廓与问号，类型不剧透。
+          fill = 'rgba(18,15,29,.92)';
+          border = 'rgba(87,79,108,.55)';
+        } else {
+          if (r.type === 'boss') { fill = 'rgba(217,79,92,.2)'; border = 'rgba(255,125,125,.75)'; }
+          if (r.type === 'elite') { fill = 'rgba(232,193,112,.16)'; border = 'rgba(232,193,112,.75)'; }
+          if (r.type === 'shop') { fill = 'rgba(255,211,107,.18)'; border = 'rgba(255,211,107,.8)'; }
+          if (r.type === 'event') { fill = 'rgba(143,214,255,.16)'; border = 'rgba(143,214,255,.75)'; }
+        }
         if (isCurrent) {
           const pulse = 0.7 + Math.sin(this.time * 5) * 0.3;
           ctx.save();
@@ -1092,7 +1104,13 @@
         ctx.strokeStyle = isCurrent ? PAL.gold2 : border;
         ctx.lineWidth = 1;
         ctx.strokeRect(pt.x - 6.5, pt.y - 5.5, 15, 12);
-        if (r.type === 'boss') {
+        if (!r.visited) {
+          ctx.fillStyle = 'rgba(180,170,200,.55)';
+          ctx.font = '8px ' + FONT;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('?', pt.x + 1, pt.y);
+        } else if (r.type === 'boss') {
           ctx.fillStyle = '#ff8a86';
           ctx.fillRect(pt.x - 1, pt.y - 2, 3, 3);
         } else if (r.type === 'elite') {
