@@ -165,6 +165,11 @@
       };
       this.skillCenter = { x: 846, y: 500, r: 44 };
       this.bossIntroShown = -1;
+      // 主界面左下角的图鉴：独立覆盖层，不改写 game.state。
+      this.codexOpen = false;
+      this.codexTab = 'enemy';
+      this.codexIndex = 0;
+      this.codexScroll = 0;
     }
 
     showToast(message, color = PAL.gold, duration = 1.9) {
@@ -181,6 +186,11 @@
       const input = this.game.input;
       const events = input.drainEvents();
       const state = this.game.state;
+
+      if (this.codexOpen) {
+        this._updateCodex(input, events);
+        return;
+      }
 
       if (this.helpOpen) {
         if (input.wasPressed('Escape', 'Enter', 'Space')) this.helpOpen = false;
@@ -235,6 +245,8 @@
         if (input.wasPressed('Enter', 'Space')) {
           this.game.audio.sfx('ui');
           this.game.toSelect();
+        } else if (input.wasPressed('KeyC')) {
+          this.openCodex('enemy');
         }
       } else if (state === 'select') {
         if (input.wasPressed('ArrowLeft', 'KeyA')) {
@@ -307,6 +319,200 @@
       return null;
     }
 
+    // ── 图鉴 ──────────────────────────────────────────────
+    // 图鉴是标题页上的覆盖层：不改变 game.state，避免误触开始游戏。
+    openCodex(tab = 'enemy') {
+      this.codexOpen = true;
+      this.codexTab = tab;
+      this.codexIndex = 0;
+      this.game.audio.sfx('ui');
+    }
+
+    _updateCodex(input, events) {
+      for (const e of events) {
+        if (e.pointerType === 'touch') this.game.touchMode = true;
+        if (e.pointerType === 'mouse' && e.type === 'down') this.game.touchMode = false;
+        if (e.type !== 'down') continue;
+        // 只接受图鉴自己的按钮，防止点穿到标题页“踏入庭中”。
+        for (let i = this.buttons.length - 1; i >= 0; i--) {
+          const b = this.buttons[i];
+          if (b.codex && hit(b, e.x, e.y)) {
+            this.game.audio.sfx('ui');
+            b.onClick();
+            this.buttons = this.buttons.filter((x) => x.codex);
+            break;
+          }
+        }
+      }
+
+      if (input.wasPressed('Escape', 'KeyQ')) {
+        this.codexOpen = false;
+        this.game.audio.sfx('uiBack');
+        return;
+      }
+      if (input.wasPressed('ArrowLeft', 'ArrowRight', 'Tab')) {
+        this.codexTab = this.codexTab === 'enemy' ? 'boss' : 'enemy';
+        this.codexIndex = 0;
+        this.game.audio.sfx('ui');
+      }
+      const list = Ink.Codex.list(this.codexTab);
+      if (input.wasPressed('ArrowUp', 'KeyW')) {
+        this.codexIndex = (this.codexIndex - 1 + list.length) % list.length;
+        this.game.audio.sfx('ui');
+      }
+      if (input.wasPressed('ArrowDown', 'KeyS')) {
+        this.codexIndex = (this.codexIndex + 1) % list.length;
+        this.game.audio.sfx('ui');
+      }
+    }
+
+    _drawCodex(ctx) {
+      const tab = this.codexTab;
+      const list = Ink.Codex.list(tab);
+      this.codexIndex = U.clamp(this.codexIndex, 0, list.length - 1);
+      const def = list[this.codexIndex];
+      const isBoss = tab === 'boss';
+
+      // 整屏压暗，保留标题的余韵。
+      ctx.fillStyle = 'rgba(4,3,9,.82)';
+      ctx.fillRect(0, 0, 960, 600);
+
+      panel(ctx, 40, 40, 880, 520, {
+        fill: 'rgba(12,10,21,.98)',
+        border: 'rgba(232,193,112,.65)',
+        accent: 'rgba(232,193,112,.25)'
+      });
+
+      text(ctx, '庭 中 图 鉴', 70, 68, {
+        size: 25, color: PAL.parchment, bold: true
+      });
+      text(ctx, 'BESTIARY OF THE FIVE TREES', 236, 70, {
+        size: 10, color: PAL.gold, bold: true
+      });
+      text(ctx, '记录庭中会动的东西，以及它们为何动手。', 70, 88, {
+        size: 10, color: PAL.muted
+      });
+
+      this._button(ctx, { x: 70, y: 104, w: 112, h: 30 }, '小 怪', {
+        size: 12, selected: tab === 'enemy', codex: true,
+        onClick: () => { this.codexTab = 'enemy'; this.codexIndex = 0; }
+      });
+      this._button(ctx, { x: 190, y: 104, w: 112, h: 30 }, '庭 主', {
+        size: 12, selected: tab === 'boss', codex: true,
+        onClick: () => { this.codexTab = 'boss'; this.codexIndex = 0; }
+      });
+      text(ctx, isBoss ? '九位守门人 · 基础数值与层数成长' : '九种游荡者 · 基础数值与攻击方式', 760, 118, {
+        size: 9, color: PAL.muted, align: 'right'
+      });
+
+      // 左侧名录
+      panel(ctx, 56, 148, 248, 368, {
+        fill: 'rgba(17,14,28,.96)',
+        border: 'rgba(69,58,96,.7)',
+        accent: 'rgba(232,193,112,.14)'
+      });
+      const rowH = 35;
+      for (let i = 0; i < list.length; i++) {
+        const e = list[i];
+        const ry = 154 + i * (rowH + 3);
+        const sel = i === this.codexIndex;
+        const mouse = this.game.input.mouse;
+        const hover = !this.game.touchMode && hit({ x: 62, y: ry, w: 236, h: rowH }, mouse.x, mouse.y);
+        ctx.fillStyle = sel ? 'rgba(232,193,112,.14)' : hover ? 'rgba(80,66,108,.5)' : 'rgba(8,6,15,.4)';
+        ctx.fillRect(62, ry, 236, rowH);
+        if (sel) {
+          ctx.fillStyle = PAL.gold;
+          ctx.fillRect(62, ry, 3, rowH);
+        }
+        const spriteKey = isBoss ? 'boss:' + e.id : 'enemy:' + e.id;
+        Ink.Art.drawSprite(ctx, spriteKey, 84, ry + 18, isBoss ? 1.15 : 1.45, {
+          frame: Math.floor(this.time * 2 + i) % 2
+        });
+        text(ctx, '0' + (i + 1), 103, ry + 12, { size: 8, color: PAL.muted });
+        text(ctx, e.name, 116, ry + 17, {
+          size: e.name.length > 5 ? 10.5 : 12, color: sel ? PAL.gold2 : PAL.parchment, bold: sel
+        });
+        text(ctx, isBoss ? '第 ' + e.floor + ' 庭' : 'HP ' + e.hp, 288, ry + 17, {
+          size: 9, color: sel ? PAL.gold : PAL.muted, align: 'right'
+        });
+        this.buttons.push({
+          x: 62, y: ry, w: 236, h: rowH, label: e.name,
+          screen: this.game.state, codex: true,
+          onClick: () => { this.codexIndex = i; }
+        });
+      }
+
+      // 右侧条目
+      panel(ctx, 316, 148, 588, 368, {
+        fill: 'rgba(17,14,28,.96)',
+        border: U.rgba(def.color, .7),
+        accent: U.rgba(def.color, .25)
+      });
+      ctx.fillStyle = U.rgba(def.color, .08);
+      ctx.fillRect(330, 162, 164, 152);
+      // 大图：庭主用 24×24 立绘，小怪用 16×16 精灵。
+      Ink.Art.drawSprite(ctx, isBoss ? 'boss:' + def.id : 'enemy:' + def.id, 412, 242, isBoss ? 4.6 : 5.2, {
+        frame: Math.floor(this.time * 2) % 2,
+        glow: def.color
+      });
+      text(ctx, '0' + (this.codexIndex + 1), 330, 170, { size: 9, color: U.rgba(def.color, .8) });
+      text(ctx, def.en, 330, 302, { size: 8, color: U.rgba(def.color, .72), align: 'center' });
+
+      text(ctx, def.name, 514, 172, {
+        size: 25, color: def.color, bold: true
+      });
+      text(ctx, def.title, 516, 196, {
+        size: 11, color: PAL.parchment2
+      });
+      text(ctx, isBoss ? '第 ' + def.floor + ' 庭 · 庭主' : '游荡者 · 小怪', 516, 214, {
+        size: 9, color: PAL.gold
+      });
+
+      // 数值行
+      const stats = isBoss
+        ? [['生命', def.hp], ['攻击', def.damage], ['移速', def.speed], ['经验', def.xp]]
+        : [['生命', def.hp], ['攻击', def.damage], ['移速', def.speed], ['经验', def.xp]];
+      let sx = 516;
+      for (const [label, value] of stats) {
+        text(ctx, label, sx, 238, { size: 8, color: PAL.muted });
+        text(ctx, String(value), sx, 252, { size: 12, color: PAL.parchment, bold: true });
+        sx += 66;
+      }
+      text(ctx, isBoss
+        ? '层数成长：生命 +62%/层 · 伤害 +32%/层 · 二阶段 60%'
+        : '层数成长：生命 +44%/层 · 伤害 +15%/层',
+        516, 272, { size: 8.5, color: U.rgba(def.color, .8) });
+
+      // 背景
+      text(ctx, '背 景', 330, 326, { size: 10, color: PAL.gold, bold: true });
+      wrapped(ctx, def.desc, 330, 344, 544, {
+        size: 9.5, lineHeight: 15, maxLines: 4, color: PAL.parchment2
+      });
+
+      // 招式
+      const skillY = 414;
+      text(ctx, '招 式', 330, skillY, { size: 10, color: PAL.gold, bold: true });
+      for (let i = 0; i < 3; i++) {
+        const sk = def.skills[i];
+        if (!sk) continue;
+        const y = skillY + 18 + i * 28;
+        text(ctx, '· ' + sk.name, 330, y, {
+          size: 9, color: def.color, bold: true
+        });
+        wrapped(ctx, sk.desc, 414, y, 454, {
+          size: 8.5, lineHeight: 12, maxLines: 1, color: PAL.muted
+        });
+      }
+
+      this._button(ctx, { x: 760, y: 526, w: 136, h: 26 }, '关 闭 图 鉴', {
+        size: 10, codex: true,
+        onClick: () => { this.codexOpen = false; this.game.audio.sfx('uiBack'); }
+      });
+      text(ctx, '↑↓ 选择 · ←→ / Tab 切换 · Esc 关闭', 70, 540, {
+        size: 9, color: 'rgba(109,99,136,.8)'
+      });
+    }
+
     _button(ctx, rect, label, opts = {}) {
       const mouse = this.game.input.mouse;
       const hover = !this.game.touchMode && hit(rect, mouse.x, mouse.y);
@@ -342,7 +548,7 @@
 
       if (!disabled) {
         this.buttons.push({
-          x, y, w, h, label, screen: this.game.state,
+          x, y, w, h, label, screen: this.game.state, codex: !!opts.codex,
           onClick: opts.onClick || (() => {})
         });
       }
@@ -422,9 +628,10 @@
       const state = this.game.state;
       if (state === 'intro') this._drawIntro(ctx);
       else if (state === 'ending') this._drawEnding(ctx);
-      else if (state === 'title') this._drawTitle(ctx);
-      else if (state === 'select') this._drawSelect(ctx);
-      else if (state === 'levelup') {
+      else if (state === 'title') {
+        this._drawTitle(ctx);
+        if (this.codexOpen) this._drawCodex(ctx);
+      } else if (state === 'select') this._drawSelect(ctx);      else if (state === 'levelup') {
         this._drawHUD(ctx);
         this._drawLevelUp(ctx);
       } else if (state === 'passive') {
@@ -687,6 +894,11 @@
         size: 11,
         onClick: () => this.game.toggleMute()
       });
+      // 主界面左下角：小怪 / 庭主图鉴入口。
+      this._button(ctx, { x: 28, y: 532, w: 130, h: 30 }, '敌 怪 图 鉴', {
+        size: 10,
+        onClick: () => this.openCodex('enemy')
+      });
 
       text(ctx, 'WASD 移动   ·   鼠标瞄准   ·   左键开火   ·   空格/右键技能   ·   G 丢武器', 480, 508, {
         size: 10, color: PAL.muted, align: 'center'
@@ -697,7 +909,7 @@
       text(ctx, 'MIT License · 零依赖 · 程序化像素美术 / WebAudio 音效', 36, 580, {
         size: 9, color: 'rgba(109,99,136,.7)'
       });
-      text(ctx, 'v3.1.1', 924, 580, { size: 9, color: 'rgba(109,99,136,.7)', align: 'right' });
+      text(ctx, 'v3.2.0', 924, 580, { size: 9, color: 'rgba(109,99,136,.7)', align: 'right' });
     }
 
     // ── 角色选择 ──────────────────────────────────────────
