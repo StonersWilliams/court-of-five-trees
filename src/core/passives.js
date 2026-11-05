@@ -101,8 +101,58 @@
     },
     lastStand: {
       id: 'lastStand', name: '背水', color: '#ff7d7d',
-      desc: '生命低于 35% 时，造成伤害 +30%。',
+      desc: '生命低于 35% 时，造成伤害 +30%，每层再 +10%。',
       apply(p) { p.lastStand = true; p.lastStandStacks = (p.lastStandStacks || 0) + 1; }
+    },
+    phoenix: {
+      id: 'phoenix', name: '涅槃', color: '#ffb35c',
+      desc: '获得一次免费复活：致命伤时以 50% 生命\n站起，并清空周围敌弹。可叠加次数。',
+      apply(p) { p.reviveCharges = (p.reviveCharges || 0) + 1; }
+    },
+    multishot: {
+      id: 'multishot', name: '双管', color: '#8fd6ff',
+      desc: '所有远程武器额外发射 1 条弹道。可叠加。',
+      apply(p) { p.extraProjectiles = (p.extraProjectiles || 0) + 1; }
+    },
+    orbit: {
+      id: 'orbit', name: '环刃', color: '#9fe8ff',
+      desc: '两枚墨刃绕身旋转，持续切割贴近的敌人。\n每层增加一枚。',
+      apply(p) { p.orbit = true; p.orbitStacks = (p.orbitStacks || 0) + 1; }
+    },
+    execute: {
+      id: 'execute', name: '斩律', color: '#ff6b6b',
+      desc: '对生命低于 30% 的敌人伤害 +50%，\n每层再 +10%。',
+      apply(p) { p.execute = true; p.executeStacks = (p.executeStacks || 0) + 1; }
+    },
+    split: {
+      id: 'split', name: '裂墨', color: '#c9a6ff',
+      desc: '武器命中后有概率向两侧裂出两发\n40% 伤害的墨弹。',
+      apply(p) { p.split = true; p.splitStacks = (p.splitStacks || 0) + 1; }
+    },
+    auraSlow: {
+      id: 'auraSlow', name: '缓时', color: '#9fd9ff',
+      desc: '身边 150 范围内的敌人持续减速 25%。\n每层再扩大范围。',
+      apply(p) { p.auraSlow = true; p.auraSlowStacks = (p.auraSlowStacks || 0) + 1; }
+    },
+    bombShot: {
+      id: 'bombShot', name: '爆裂弹', color: '#ff9a5c',
+      desc: '每第 5 发远程攻击附带一次\n小范围爆炸。',
+      apply(p) { p.bombShot = true; p.bombShotStacks = (p.bombShotStacks || 0) + 1; }
+    },
+    bloodlust: {
+      id: 'bloodlust', name: '饮血', color: '#ff8f9f',
+      desc: '暴击时回复 3 点生命。可叠加。',
+      apply(p) { p.critHeal = (p.critHeal || 0) + 3; }
+    },
+    deadeye: {
+      id: 'deadeye', name: '鹰眼', color: '#ffd36b',
+      desc: '对 240 距离外的敌人伤害 +25%，\n每层再 +5%。',
+      apply(p) { p.deadeye = true; p.deadeyeStacks = (p.deadeyeStacks || 0) + 1; }
+    },
+    paperShield: {
+      id: 'paperShield', name: '纸甲', color: '#e8dfc2',
+      desc: '每 9 秒获得一层纸甲，完全挡下一次伤害。\n每层缩短冷却。',
+      apply(p) { p.paperShield = true; p.paperShieldStacks = (p.paperShieldStacks || 0) + 1; }
     }
   };
 

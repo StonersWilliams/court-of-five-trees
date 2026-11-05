@@ -158,6 +158,7 @@
       this.selectIndex = 0;
       this.helpOpen = false;
       this.toast = null;
+      this.clearBanner = null;
       this.stick = {
         active: false, pointerId: null,
         cx: 112, cy: 492, radius: 58,
@@ -176,12 +177,20 @@
       this.toast = { message, color, t: duration, max: duration };
     }
 
+    showClearBanner(title, sub = '', color = PAL.gold) {
+      this.clearBanner = { title, sub, color, t: 2.4, max: 2.4 };
+    }
+
     // ── 输入 ──────────────────────────────────────────────
     update(dt) {
       this.time += dt;
       if (this.toast) {
         this.toast.t -= dt;
         if (this.toast.t <= 0) this.toast = null;
+      }
+      if (this.clearBanner) {
+        this.clearBanner.t -= dt;
+        if (this.clearBanner.t <= 0) this.clearBanner = null;
       }
       const input = this.game.input;
       const events = input.drainEvents();
@@ -657,6 +666,7 @@
         this._drawHUD(ctx);
       }
 
+      if (this.clearBanner && state === 'playing') this._drawClearBanner(ctx);
       if (this.helpOpen) this._drawHelp(ctx);
       this._drawToast(ctx);
       ctx.restore();
@@ -877,7 +887,7 @@
       });
 
       const pulse = 0.55 + Math.sin(t * 2.4) * 0.18;
-      text(ctx, '九层 · 每层七关 · 九庭主 · 四十二兵刃', 480, 330, {
+      text(ctx, '九层 · 每层七关 · 九庭主 · 四十五兵刃', 480, 330, {
         size: 12, color: U.rgba(PAL.muted, pulse), align: 'center'
       });
 
@@ -909,7 +919,7 @@
       text(ctx, 'MIT License · 零依赖 · 程序化像素美术 / WebAudio 音效', 36, 580, {
         size: 9, color: 'rgba(109,99,136,.7)'
       });
-      text(ctx, 'v3.2.0', 924, 580, { size: 9, color: 'rgba(109,99,136,.7)', align: 'right' });
+      text(ctx, 'v3.3.0', 924, 580, { size: 9, color: 'rgba(109,99,136,.7)', align: 'right' });
     }
 
     // ── 角色选择 ──────────────────────────────────────────
@@ -1161,6 +1171,9 @@
       // 武器 / 金币
       this._drawWeaponCard(ctx);
 
+      // 已获得的机制被动（左侧检视栏）
+      this._drawPassiveRail(ctx);
+
       // 暂停按钮（触屏 / 鼠标都可点）
       this._button(ctx, { x: 694, y: 12, w: 34, h: 34 }, 'Ⅱ', {
         size: 13,
@@ -1240,6 +1253,40 @@
         size: 12, color: PAL.parchment2, align: 'center'
       });
       ctx.restore();
+    }
+
+    _drawPassiveRail(ctx) {
+      const p = this.game.player;
+      if (!p || !p.passives || p.passives.length === 0) return;
+      // 按获得顺序去重，双列展示，尽量把所有机缘放在左侧可检视。
+      const ids = [];
+      for (const id of p.passives) if (!ids.includes(id)) ids.push(id);
+      const shown = ids.slice(0, 16);
+      const rows = Math.ceil(shown.length / 2);
+      const h = 26 + rows * 16 + (ids.length > 16 ? 13 : 0);
+      const x = 14, y = 92, w = 226, colW = 108;
+      panel(ctx, x, y, w, h, { fill: 'rgba(8,6,14,.82)' });
+      text(ctx, '机 缘', x + 9, y + 14, { size: 9, color: PAL.gold, bold: true });
+      text(ctx, String(p.passives.length) + ' 层', x + w - 9, y + 14, {
+        size: 8, color: PAL.muted, align: 'right'
+      });
+      for (let i = 0; i < shown.length; i++) {
+        const id = shown[i];
+        const def = Ink.Passives[id];
+        if (!def) continue;
+        const col = i % 2;
+        const ry = y + 26 + Math.floor(i / 2) * 16;
+        const cx = x + 9 + col * colW;
+        ctx.fillStyle = def.color || PAL.gold;
+        ctx.fillRect(cx, ry + 2, 4, 8);
+        text(ctx, def.name, cx + 8, ry + 9, { size: 8, color: PAL.parchment2 });
+        text(ctx, '×' + (p.passiveStacks[id] || 1), cx + colW - 10, ry + 9, {
+          size: 8, color: PAL.gold, align: 'right'
+        });
+      }
+      if (ids.length > 16) {
+        text(ctx, '…另有 ' + (ids.length - 16) + ' 种', x + 9, y + h - 4, { size: 8, color: PAL.muted });
+      }
     }
 
     _drawMinimap(ctx) {
@@ -1364,8 +1411,9 @@
       const cd = p.weaponCd || 0;
       const maxCd = p._weaponCooldown ? p._weaponCooldown() : 1;
       bar(ctx, x + 48, y + 27, w - 108, 4, 1 - U.clamp(cd / Math.max(0.01, maxCd), 0, 1), wdef.color, { segments: false });
-      text(ctx, '威伤 ' + (wdef.damage || 0) + ' · ' + (Ink.Rarity[wdef.rarity] || {}).name, x + 48, y + 43, {
-        size: 8, color: 'rgba(207,192,157,.62)'
+      text(ctx, '威伤 ' + (wdef.damage || 0) + ' · ' + (Ink.Rarity[wdef.rarity] || {}).name +
+        (wdef.charged ? ' · 蓄力' : ''), x + 48, y + 43, {
+        size: 8, color: wdef.charged ? '#ffe6a8' : 'rgba(207,192,157,.62)'
       });
 
       // 武器可以主动丢弃；触屏点小按钮，桌面按 G。
@@ -1586,7 +1634,7 @@
       text(ctx, '机 缘 三 选', 480, 110, {
         size: 26, color: PAL.gold, align: 'center', bold: true
       });
-      text(ctx, '每层第 2、4、6 关后，从三条机制里选一条 · 可重复叠加 · 数字键 1 / 2 / 3', 480, 140, {
+      text(ctx, '每通过 5 关获得一次机缘 · 击败庭主额外获得一次 · 可重复叠层 · 数字键 1 / 2 / 3', 480, 140, {
         size: 11, color: PAL.muted, align: 'center'
       });
 
@@ -2023,6 +2071,39 @@
       this._button(ctx, { x: 380, y: 482, w: 200, h: 36 }, '关 闭', {
         size: 13, onClick: () => { this.helpOpen = false; }
       });
+    }
+
+    _drawClearBanner(ctx) {
+      const b = this.clearBanner;
+      if (!b) return;
+      const fadeIn = U.clamp((b.max - b.t) / 0.18, 0, 1);
+      const fadeOut = U.clamp(b.t / 0.45, 0, 1);
+      const a = Math.min(fadeIn, fadeOut);
+      const slide = (1 - fadeIn) * -16;
+      ctx.save();
+      ctx.globalAlpha = a;
+      const w = 360, h = 66, x = (960 - w) / 2, y = 108 + slide;
+      ctx.fillStyle = 'rgba(8,6,14,.92)';
+      ctx.fillRect(x, y, w, h);
+      ctx.strokeStyle = U.rgba(b.color, 0.9);
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x + 1, y + 1, w - 2, h - 2);
+      ctx.fillStyle = U.rgba(b.color, 0.20);
+      ctx.fillRect(x + 2, y + 2, w - 4, 3);
+      ctx.fillStyle = b.color;
+      ctx.fillRect(x - 3, y - 3, 6, 6);
+      ctx.fillRect(x + w - 3, y - 3, 6, 6);
+      ctx.fillRect(x - 3, y + h - 3, 6, 6);
+      ctx.fillRect(x + w - 3, y + h - 3, 6, 6);
+      setFont(ctx, 20, true);
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = b.color;
+      ctx.fillText(b.title, 480, y + 24);
+      setFont(ctx, 10);
+      ctx.fillStyle = PAL.parchment2;
+      ctx.fillText(b.sub, 480, y + 48);
+      ctx.restore();
     }
 
     _drawToast(ctx) {

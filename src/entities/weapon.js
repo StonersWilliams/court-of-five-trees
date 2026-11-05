@@ -210,6 +210,27 @@
       damage: 26, range: 160, shots: 1, spread: 0, speed: 760, radius: 8,
       life: 0.6, pierce: 2, special: 'mask', melee: true, arc: 1.6, clearShots: true,
       desc: '近战爪击并扫落弹幕；第五下戴面具变身 8 秒，免疫减速，击杀延长变身。'
+    },
+    bamboo_saber: {
+      id: 'bamboo_saber', name: '竹节刀', rarity: 'rare', price: 28,
+      color: '#9ed08a', shape: 'blade', icon: 'blade', cooldown: 0.48,
+      damage: 24, range: 150, shots: 1, spread: 0, speed: 760, radius: 6, life: 0.5,
+      knockback: 64, melee: true, arc: 1.25, clearShots: true, special: 'slam3',
+      desc: '竹节削成的短刀。近战横斩并扫落弹幕，第三下震地击退周围敌人。'
+    },
+    paper_hammer: {
+      id: 'paper_hammer', name: '镇纸锤', rarity: 'epic', price: 42,
+      color: '#c8a46b', shape: 'hammer', icon: 'bomb', cooldown: 1.05, chargeTime: 1.1,
+      damage: 46, range: 160, shots: 1, spread: 0, speed: 680, radius: 10, life: 0.6,
+      knockback: 120, melee: true, arc: 1.9, clearShots: true, charged: true,
+      desc: '黄铜镇纸改成的重锤。按住蓄力，松手砸出高额扇形伤害并扫落弹幕。'
+    },
+    siege_bow: {
+      id: 'siege_bow', name: '破城弓', rarity: 'epic', price: 46,
+      color: '#d6b06a', shape: 'bow', icon: 'bow', cooldown: 0.9, chargeTime: 1.1,
+      damage: 58, range: 640, shots: 1, spread: 0, speed: 920, radius: 7, life: 1.3,
+      pierce: 6, knockback: 60, trail: true, charged: true,
+      desc: '守城用的旧弓。按住蓄力，满蓄一箭穿透整条走廊。'
     }
   };
 
@@ -328,8 +349,8 @@
     },
     burrow_claw: {
       id: 'burrow_claw', name: '穿地爪', rarity: 'rare', price: 0, color: '#d9a35c',
-      shape: 'blade', icon: 'blade', cooldown: 0.34, damage: 19, range: 170,
-      shots: 1, spread: 0, speed: 780, radius: 6, life: 0.5, melee: true, arc: 1.4,
+      shape: 'blade', icon: 'blade', cooldown: 0.34, damage: 19, range: 118,
+      shots: 1, spread: 0, speed: 780, radius: 6, life: 0.5, melee: true, arc: 1.22,
       clearShots: true, starterFor: 'mouse', starterOnly: true, hidden: true,
       desc: '小牢鼠的掘地爪。挥击成弧并扫落弹幕；从地下钻出后的第一击伤害翻倍。'
     },
@@ -648,6 +669,22 @@
       px(1, -2, 15, 4, '#43303a');
       px(7, -3, 9, 5, c);
       px(16, -2, 3, 3, '#fff1cc');
+    } else if (shape === 'bow') {
+      // 破城弓：弯曲弓臂 + 弦与搭箭，蓄力时弦会被拉满。
+      ctx.strokeStyle = c;
+      ctx.lineWidth = 2.4;
+      ctx.beginPath();
+      ctx.arc(7, 0, 14, -1.15, 1.15);
+      ctx.stroke();
+      ctx.strokeStyle = '#e8dfc2';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(12, -12);
+      ctx.lineTo(9, 0);
+      ctx.lineTo(12, 12);
+      ctx.stroke();
+      px(7, -1, 20, 2, '#d8cbb0');
+      px(23, -3, 4, 6, c);
     } else if (shape === 'blade') {
       px(0, -2, 7, 5, '#3a2c2c');
       ctx.fillStyle = c;

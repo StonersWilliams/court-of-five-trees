@@ -35,6 +35,30 @@
     ['edo']
   ];
 
+  // 每层的地图骨架。节点坐标只影响小地图与通道走向；关卡顺序仍固定。
+  const LAYOUTS = [
+    {
+      id: 'spine', name: '直脊',
+      prep: [0, 1], stage1: [1, 1], stage2: [2, 1], stage3: [3, 1], stage4: [4, 1],
+      event: [5, 1], stage6: [6, 1], boss: [7, 1], shop: [3, 0], sideA: [2, 0], sideB: [4, 2]
+    },
+    {
+      id: 'serpent', name: '回蛇',
+      prep: [0, 1], stage1: [1, 1], stage2: [2, 1], stage3: [2, 0], stage4: [3, 0],
+      event: [4, 1], stage6: [5, 2], boss: [6, 2], shop: [3, 1], sideA: [1, 0], sideB: [4, 2]
+    },
+    {
+      id: 'fork', name: '双岔',
+      prep: [0, 1], stage1: [1, 1], stage2: [2, 1], stage3: [3, 0], stage4: [3, 2],
+      event: [4, 1], stage6: [5, 1], boss: [6, 1], shop: [2, 0], sideA: [1, 0], sideB: [5, 2]
+    },
+    {
+      id: 'spiral', name: '盘阶',
+      prep: [0, 1], stage1: [1, 1], stage2: [2, 0], stage3: [3, 0], stage4: [4, 0],
+      event: [4, 1], stage6: [5, 2], boss: [6, 2], shop: [3, 1], sideA: [1, 0], sideB: [5, 1]
+    }
+  ];
+
   const ENEMY_POOLS = [
     ['slime', 'skull', 'spider'],
     ['skull', 'spider', 'moth', 'guard'],
@@ -70,9 +94,10 @@
     chair: '未编号的教室',
     manuscript: '废稿堆',
     tea: '庭外茶摊',
-    bell: '无风钟楼'
+    bell: '无风钟楼',
+    practice: '旧帖研习室'
   };
-  const EVENT_POOL = ['inkwell', 'rain', 'chair', 'manuscript', 'tea', 'bell'];
+  const EVENT_POOL = ['inkwell', 'rain', 'chair', 'manuscript', 'tea', 'bell', 'practice'];
 
   function makeRng(seed) {
     let s = (seed >>> 0) || 1;
@@ -100,6 +125,8 @@
       this.seed = seed >>> 0;
       this.rng = makeRng(this.seed);
       this.floors = [];
+      // 每层的节点排布从四套骨架里轮换，避免九层地图全是一条直线。
+      this.layoutOrder = U.shuffle([0, 1, 2, 3]);
       for (let i = 0; i < FLOOR_COUNT; i++) {
         this.floors.push(this.generateFloor(i));
       }
@@ -176,6 +203,24 @@
       sideB.branch = true;
       rooms.push(sideB);
 
+      // 套用本层骨架坐标：四套轮换，九层不会全是一条直脊。
+      const layout = LAYOUTS[this.layoutOrder[floorIndex % this.layoutOrder.length]];
+      const anchors = { prep, stage1, stage2, stage3, stage4, event: eventRoom, stage6, boss: bossRoom, shop, sideA, sideB };
+      for (const key of Object.keys(anchors)) {
+        const pos = layout[key];
+        if (!pos) continue;
+        anchors[key].mapX = pos[0];
+        anchors[key].mapY = pos[1];
+      }
+      // 后四层镜像，末层再上下翻转，九层不会出现完全相同的地图骨架。
+      const cycle = Math.floor(floorIndex / LAYOUTS.length);
+      if (cycle % 2 === 1) {
+        for (const key of Object.keys(anchors)) anchors[key].mapX = 7 - anchors[key].mapX;
+      }
+      if (floorIndex === FLOOR_COUNT - 1) {
+        for (const key of Object.keys(anchors)) anchors[key].mapY = 2 - anchors[key].mapY;
+      }
+
       stage1.visited = false;
       stage1.cleared = false;
       eventRoom.cleared = false;
@@ -209,6 +254,8 @@
         branchRoomIds: [sideA.id, sideB.id],
         spineIds: [stage1.id, stage2.id, stage3.id, stage4.id, eventRoom.id, stage6.id, bossRoom.id],
         bossId,
+        layoutId: layout.id,
+        layoutName: layout.name,
         bossUnlocked: false,
         passiveOffered2: false,
         passiveOffered4: false,
@@ -328,6 +375,7 @@
 
     // ── 敌人生成计划 ──────────────────────────────────────
     _buildSpawnPlan(room, floorIndex, rng) {
+      room.waves = 1;
       if (room.type === 'boss' || room.type === 'shop' || room.type === 'prep') return [];
       if (room.type === 'event') {
         // 奇遇房可能由一只守室精英（小 Boss）把门，清掉后才出现事件选项。
@@ -353,10 +401,13 @@
       }
       const eliteRoom = room.type === 'elite';
       // 九层逐层加量；第 3 关精英、第 6 关是庭主前最后一战，更密。
-      const base = 3 + floorIndex * 2 + rng.int(0, 1) +
+      const base = 5 + floorIndex * 2 + rng.int(0, 2) +
         (room.stage === 3 ? 2 : 0) + (room.stage === 6 ? 3 : 0);
-      const normalCount = Math.max(2, base - (eliteRoom ? 1 : 0));
-      const count = Math.min(18, normalCount + (eliteRoom ? 1 : 0));
+      const normalCount = Math.max(3, base - (eliteRoom ? 1 : 0));
+      const count = Math.min(24, normalCount + (eliteRoom ? 1 : 0));
+      // 后半程和精英关更容易分两波：先清一波，门仍锁着，第二波从墨里爬出。
+      const waveChance = floorIndex >= 5 ? 0.95 : floorIndex >= 2 ? 0.65 : 0.35;
+      room.waves = (room.stage >= 5 || eliteRoom || floorIndex >= 5) && rng.chance(waveChance) ? 2 : 1;
       let pool = ENEMY_POOLS[Math.min(ENEMY_POOLS.length - 1, floorIndex)];
       if (pool.length === 1 && pool[0] === 'all') {
         pool = ['slime', 'skull', 'gargoyle', 'spider', 'tome', 'guard', 'moth', 'bell', 'rat'];

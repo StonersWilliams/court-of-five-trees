@@ -35,7 +35,7 @@
       name: '夹页书房',
       text: '一本被墨浸透的旧书摊在桌上，夹页里还有半行未写完的字。',
       choices: [
-        { label: '翻开夹页', desc: '获得一次机制被动。', apply(g) { g.grantRandomPassive(); } },
+        { label: '翻开夹页', desc: '研习旧帖：生命 +12、伤害 +5%、移速 +1.5%。', apply(g) { g.player.applyStatGrowth(); } },
         { label: '蘸墨补字', desc: '回复 35% 生命，获得 10 金币。', apply(g) { g.player.heal(g.player.maxHp * 0.35); g.player.addCoins(10); } },
         { label: '把书合上', desc: '获得 3 点护甲。', apply(g) { g.player.addArmor(3); } }
       ]
@@ -54,7 +54,7 @@
       text: '空教室里只摆着一把椅子，椅背上刻着“坐者留名”。',
       choices: [
         { label: '坐下', desc: '回复 45% 生命。', apply(g) { g.player.heal(g.player.maxHp * 0.45); } },
-        { label: '在椅背刻字', desc: '获得一次机制被动。', apply(g) { g.grantRandomPassive(); } },
+        { label: '在椅背刻字', desc: '研习旧帖：生命 +12、伤害 +5%、移速 +1.5%。', apply(g) { g.player.applyStatGrowth(); } },
         { label: '把椅子踢翻', desc: '获得 14 金币，但失去 8% 生命。', apply(g) { g.player.addCoins(14); g.player.hp = Math.max(1, g.player.hp - g.player.maxHp * 0.08); } }
       ]
     },
@@ -63,7 +63,7 @@
       text: '无数被退回的稿纸堆到膝盖，最上面一张还在渗墨。',
       choices: [
         { label: '捡起残稿', desc: '获得 16 金币，并收起一页前辈残稿。', apply(g) { g.player.addCoins(16); g.runStats.fragments = Math.min(5, g.runStats.fragments + 1); } },
-        { label: '读一页', desc: '获得一次机制被动。', apply(g) { g.grantRandomPassive(); } },
+        { label: '读一页', desc: '研习旧帖：生命 +12、伤害 +5%、移速 +1.5%。', apply(g) { g.player.applyStatGrowth(); } },
         { label: '一把火烧了', desc: '回复 30% 生命，获得 3 护甲。', apply(g) { g.player.heal(g.player.maxHp * 0.3); g.player.addArmor(3); } }
       ]
     },
@@ -83,6 +83,15 @@
         { label: '敲一下', desc: '随机获得一把兵器。', apply(g) { g.grantRandomWeapon(); } },
         { label: '数钟上的字', desc: '获得一次机制被动。', apply(g) { g.grantRandomPassive(); } },
         { label: '割断钟绳', desc: '获得 18 金币。', apply(g) { g.player.addCoins(18); } }
+      ]
+    },
+    practice: {
+      name: '旧帖研习室',
+      text: '桌上摊着前辈留下的批注本，页边写着“先练筋骨，再谈文章”。',
+      choices: [
+        { label: '研习旧帖', desc: '基础成长：生命 +12、伤害 +5%、移速 +1.5%。', apply(g) { g.player.applyStatGrowth(); } },
+        { label: '临摹一页', desc: '获得一次机制被动。', apply(g) { g.grantRandomPassive(); } },
+        { label: '把批注卖掉', desc: '获得 20 金币，回复 15% 生命。', apply(g) { g.player.addCoins(20); g.player.heal(g.player.maxHp * 0.15); } }
       ]
     }
   };
@@ -265,7 +274,7 @@
       this.upgradeChoices = [];
       this.pendingLevelUps = 0;
       this.passiveChoices = [];
-      this.passivePending = false;
+      this.passivePending = 0;
       this.eventChoices = [];
       this.prepChoices = [];
       this.prepNotice = '';
@@ -274,7 +283,7 @@
       this.endingResult = null;
       this.shopOffers = [];
       this.shopNotice = '';
-      this.runStats = { floor: 1, kills: 0, rooms: 0, time: 0, bosses: 0, fragments: 0, trueNames: 0, seals: 0 };
+      this.runStats = { floor: 1, kills: 0, rooms: 0, stages: 0, time: 0, bosses: 0, fragments: 0, trueNames: 0, seals: 0 };
 
       this.shake = 0;
       this.shakeTime = 0;
@@ -341,7 +350,7 @@
       this.upgradeChoices = [];
       this.pendingLevelUps = 0;
       this.passiveChoices = [];
-      this.passivePending = false;
+      this.passivePending = 0;
       this.eventChoices = [];
       this.prepChoices = [];
       this.prepNotice = '';
@@ -412,7 +421,7 @@
       this.upgradeChoices = [];
       this.pendingLevelUps = 0;
       this.passiveChoices = [];
-      this.passivePending = false;
+      this.passivePending = 0;
       this.eventChoices = [];
       this.prepChoices = [];
       this.prepNotice = '';
@@ -421,7 +430,7 @@
       this.endingResult = null;
       this.shopOffers = [];
       this.shopNotice = '';
-      this.runStats = { floor: 1, kills: 0, rooms: 0, time: 0, bosses: 0, fragments: 0, trueNames: 0, seals: 0 };
+      this.runStats = { floor: 1, kills: 0, rooms: 0, stages: 0, time: 0, bosses: 0, fragments: 0, trueNames: 0, seals: 0 };
       this.touchMove = { x: 0, y: 0 };
       this.skillRequest = false;
       this.portal = null;
@@ -602,9 +611,15 @@
       this.room.cleared = true;
       this.dungeon.markCleared(this.floorData, this.room);
       this.runStats.rooms++;
+      this.runStats.stages++;
+      if (this.runStats.stages % 5 === 0) {
+        this.passivePending++;
+        this.ui.showToast('五关已过 · 机缘将至', '#e8c170', 2.0);
+      }
       this.state = 'playing';
       this.doorCooldown = 0.8;
       this.audio.sfx('door');
+      this.ui.showClearBanner('奇遇已了', '门扉已开 · 继续深入', '#8fd6ff');
       this.ui.showToast('奇遇已了 · 门扉开启', PAL.gold, 1.8);
     }
 
@@ -909,15 +924,27 @@
         return;
       }
 
+      room.waveIndex = 0;
+      this.spawnWave(room, 0);
+    }
+
+    /** 刷出房间的某一波敌人：两波房先出一半，清空后再出另一半。 */
+    spawnWave(room, waveIndex) {
       const plan = room.spawnPlan || [];
-      for (let i = 0; i < plan.length; i++) {
+      const waves = Math.max(1, room.waves || 1);
+      const per = Math.ceil(plan.length / waves);
+      const start = waveIndex * per;
+      const end = Math.min(plan.length, start + per);
+      for (let i = start; i < end; i++) {
         const s = plan[i];
         Ink.spawnEnemy(this, s.type, s.x, s.y, {
           elite: s.elite,
           floor: this.floor,
-          spawnTimer: 0.42 + i * 0.06
+          spawnTimer: 0.35 + (i - start) * 0.06
         });
       }
+      room.waveIndex = waveIndex;
+      room.waveCount = waves;
       this.pushSpawnsFromPlayer();
     }
 
@@ -1003,8 +1030,9 @@
         return;
       }
 
-      if (this.passivePending) {
-        this.passivePending = false;
+      if (this.passivePending > 0) {
+        // 队列式：每消耗一次机缘才减一，保证“五关+Boss”连给时不会被吞掉。
+        this.passivePending--;
         this.openPassive();
         return;
       }
@@ -1145,6 +1173,18 @@
       room.clearTimer = (room.clearTimer || 0) + dt;
       if (room.clearTimer < 0.38) return;
 
+      // 两波房：第一波清空后门仍锁，第二波从地面墨痕里爬出。
+      if ((room.waveIndex || 0) + 1 < (room.waves || 1)) {
+        room.clearTimer = 0;
+        const next = (room.waveIndex || 0) + 1;
+        this.spawnWave(room, next);
+        this.ui.showToast('第二波 · 墨潮再起', '#ffb35c', 1.5);
+        this.ui.showClearBanner('第 ' + (next + 1) + ' 波', '不要松懈，门仍然锁着', '#ffb35c');
+        FX.ring(this, { x: 480, y: 334, r0: 20, r1: 260, life: 0.65, color: '#ffb35c', width: 2 });
+        this.audio.sfx('boss');
+        return;
+      }
+
       // 事件房：守室精英清完后弹出事件，不直接算作已清。
       if (room.type === 'event') {
         if (!room.eventOpened) {
@@ -1165,12 +1205,13 @@
         color: '#8ef0c8', width: 2
       });
       this.ui.showToast('关卡 ' + (room.stage || 1) + ' 已清 · 门扉开启', '#8ef0c8', 1.6);
+      this.ui.showClearBanner('关卡 ' + (room.stage || 1) + ' 已清', '门扉已开 · 可继续深入', '#8ef0c8');
 
-      // 每层第 2、4、6 关结束：从机制被动里三选一。
-      if ((room.stage === 2 || room.stage === 4 || room.stage === 6) &&
-          !this.floorData['passiveOffered' + room.stage]) {
-        this.floorData['passiveOffered' + room.stage] = true;
-        this.passivePending = true;
+      // 全局每通过 5 关给一次被动；庭主另给一次。选择频率降低，但每次更关键。
+      this.runStats.stages++;
+      if (this.runStats.stages % 5 === 0) {
+        this.passivePending++;
+        this.ui.showToast('五关已过 · 机缘将至', '#e8c170', 2.0);
       }
     }
 
@@ -1234,7 +1275,17 @@
     damageEnemy(enemy, amount, opts = {}) {
       if (!enemy || enemy.dead) return 0;
       let final = amount;
-      if (this.player) final = this.player.char.modifyDamageDealt(enemy, final);
+      const p = this.player;
+      if (p) {
+        // 斩律：残血处决增伤；鹰眼：远距离增伤。
+        if (p.execute && enemy.hp / Math.max(1, enemy.maxHp) < 0.3) {
+          final *= 1.5 + 0.1 * Math.max(0, p.executeStacks - 1);
+        }
+        if (p.deadeye && U.dist(p.x, p.y, enemy.x, enemy.y) > 240) {
+          final *= 1.25 + 0.05 * Math.max(0, p.deadeyeStacks - 1);
+        }
+        final = p.char.modifyDamageDealt(enemy, final);
+      }
       enemy.takeDamage(final, opts);
       return final;
     }
@@ -1321,8 +1372,13 @@
       this.dungeon.markCleared(this.floorData, this.room);
       this.runStats.bosses++;
       this.runStats.rooms++;
+      this.runStats.stages++;
       this.runStats.trueNames = Math.min(Ink.FLOOR_COUNT, this.runStats.trueNames + 1);
       this.runStats.seals = Math.min(Ink.FLOOR_COUNT, this.runStats.seals + 1);
+      // 庭主额外给一次被动；若这一关正好也是“每五关”，会连续给两次。
+      this.passivePending++;
+      this.ui.showClearBanner('庭主已破', '遗物已落 · 机缘额外 +1', PAL.gold);
+      if (this.runStats.stages % 5 === 0) this.passivePending++;
 
       // 层主倒下时，残余召唤物一并墨化。
       for (const e of this.enemies.slice()) {

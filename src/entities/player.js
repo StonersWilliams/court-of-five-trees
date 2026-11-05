@@ -114,6 +114,37 @@
       this.swiftStacks = 0;
       this.swiftTimer = 0;
 
+      // 第二批机制被动：复活、额外弹道、环刃、处决、裂墨、缓时、爆裂弹、饮血、鹰眼、纸甲。
+      this.reviveCharges = 0;
+      this.extraProjectiles = 0;
+      this.orbit = false;
+      this.orbitStacks = 0;
+      this.orbitAngle = 0;
+      this.orbitCd = 0;
+      this.execute = false;
+      this.executeStacks = 0;
+      this.split = false;
+      this.splitStacks = 0;
+      this.splitCd = 0;
+      this.auraSlow = false;
+      this.auraSlowStacks = 0;
+      this.auraCd = 0;
+      this.bombShot = false;
+      this.bombShotStacks = 0;
+      this.bombCount = 0;
+      this.critHeal = 0;
+      this.deadeye = false;
+      this.deadeyeStacks = 0;
+      this.paperShield = false;
+      this.paperShieldStacks = 0;
+      this.paperShieldCd = 0;
+      this.chargeTimer = 0;
+      this.chargePower = 1;
+      // 基础属性成长只来自随机事件，不再由升级三选一提供。
+      this.growthHp = 0;
+      this.growthDamage = 0;
+      this.growthSpeed = 0;
+
       // 兵器专属节奏：连段、蓄力、变身与临时增益
       this.weaponShots = 0;
       this.weaponHits = 0;
@@ -139,10 +170,10 @@
       const oldMax = this.maxHp;
       const oldArmorMax = this.maxArmor;
 
-      this.maxHp = Math.round(this.baseMaxHp);
+      this.maxHp = Math.round(this.baseMaxHp + (this.growthHp || 0));
       this.maxArmor = Math.round(this.baseArmor);
-      this.speed = this.baseSpeed;
-      this.damage = this.baseDamage;
+      this.speed = this.baseSpeed * (1 + (this.growthSpeed || 0));
+      this.damage = this.baseDamage * (1 + (this.growthDamage || 0));
       this.atkInterval = this.baseAtkInterval;
       this.skillCdMax = this.baseCooldown;
 
@@ -156,6 +187,18 @@
     /** 兼容旧接口；新版本不再提供基础属性升级。 */
     applyUpgrade(kind) {
       return false;
+    }
+
+    /** 随机事件专用：小幅提高基础属性（生命/伤害/移速）。 */
+    applyStatGrowth() {
+      this.growthHp += 12;
+      this.growthDamage += 0.05;
+      this.growthSpeed += 0.015;
+      this.recomputeStats(true);
+      this.heal(12);
+      if (this.game && this.game.ui) {
+        this.game.ui.showToast('研习旧帖 · 生命 +12 / 伤害 +5% / 移速 +1.5%', '#e8c170', 2.2);
+      }
     }
 
     // ── 武器 / 被动 / 金币 ──────────────────────────────
@@ -172,6 +215,8 @@
       this.weaponCd = Math.min(this.weaponCd, 0.18);
       this.weaponRecoil = 0.7;
       this.weaponFlash = 0.06;
+      this.chargeTimer = 0;
+      this.chargePower = 1;
 
       if (opts.dropCurrent && oldId && oldId !== id && !opts.silent) {
         // 旧枪落在身后 66px，避免刚换枪就被自动捡回。
@@ -258,7 +303,21 @@
 
     updateWeapon(dt) {
       this.weaponCd = Math.max(0, this.weaponCd - dt);
-      if (this.dead || this.weaponCd > 0) return;
+      if (this.dead) return;
+
+      const def = this.weapon;
+      if (def && def.charged && this.weaponCd <= 0) {
+        // 蓄力武器：按住时蓄力，满蓄自动释放；松开时若已蓄到 12% 也会甩出半蓄攻击。
+        if (this.wantFire()) {
+          this.chargeTimer = Math.min(1, this.chargeTimer + dt / (def.chargeTime || 0.9));
+          if (this.chargeTimer >= 1) this.fireWeapon();
+        } else if (this.chargeTimer > 0.12) {
+          this.fireWeapon();
+        }
+        return;
+      }
+
+      if (this.weaponCd > 0) return;
       if (!this.wantFire()) return;
       this.fireWeapon();
     }
@@ -266,6 +325,10 @@
     fireWeapon() {
       const def = this.weapon;
       if (!def) return false;
+      // 蓄力强度只在本发内生效；普通武器固定为 1。
+      this.chargePower = def.charged
+        ? 0.9 + 1.25 * Math.max(0.12, this.chargeTimer)
+        : 1;
       // 近战武器不走弹道：挥出弧形，命中敌人并清除范围内敌方弹幕。
       if (def.melee) {
         this.swingWeapon(def);
@@ -274,10 +337,12 @@
         this.weaponCdMax = def.cooldown;
         this.weaponRecoil = 1;
         this.weaponFlash = 0.085;
+        this.chargeTimer = 0;
         return true;
       }
-      const shots = def.shots || 1;
-      const spread = def.spread || 0;
+      const extra = this.extraProjectiles || 0;
+      const shots = (def.shots || 1) + extra;
+      const spread = def.spread || (extra > 0 ? 0.16 : 0);
       for (let i = 0; i < shots; i++) {
         const t = shots === 1 ? 0 : (i / (shots - 1)) - 0.5;
         this.weaponShot({
@@ -299,6 +364,7 @@
           ink: def.ink,
           explode: def.explode,
           explodeMult: def.explodeMult,
+          damage: def.charged ? (def.damage || 12) * this.chargePower : undefined,
           def
         });
       }
@@ -307,7 +373,8 @@
       this.weaponCdMax = def.cooldown;
       this.weaponRecoil = 1;
       this.weaponFlash = 0.085;
-      if ((def.damage || 0) >= 40) this.game.addShake(3, 0.1);
+      this.chargeTimer = 0;
+      if ((def.damage || 0) * this.chargePower >= 40) this.game.addShake(3, 0.1);
       this.game.audio.sfx(def.sfx || 'shoot');
       return true;
     }
@@ -315,9 +382,9 @@
     swingWeapon(def) {
       const range = def.range || 170;
       // 近战统一为扇形横扫：最小约 109°，避免变成“点状攻击”。
-      const arc = Math.max(1.9, def.arc || 1.5);
+      const arc = Math.max(1.35, def.arc || 1.5);
       const a = this.aimAngle;
-      const dmg = (def.damage || 12) * (def.charged ? 1.85 : 1) * this.damageMultiplier();
+      const dmg = (def.damage || 12) * (def.charged ? (this.chargePower || 1.85) : 1) * this.damageMultiplier();
       let hits = 0;
       for (const e of this.game.enemies.slice()) {
         if (e.dead) continue;
@@ -369,6 +436,12 @@
       // 伤害来自武器本体，而不是角色基础伤害 × 倍率。
       const dmg = (opts.damage || def.damage || 8) *
         (crit ? 1.65 : 1) * this.damageMultiplier();
+      if (crit && this.critHeal > 0) this.heal(this.critHeal);
+      // 爆裂弹：每第 5 发远程攻击附带爆炸；裂墨的副弹不计数。
+      if (this.bombShot && !opts._split) {
+        this.bombCount++;
+        if (this.bombCount % 5 === 0) opts.explode = Math.max(opts.explode || 0, 66);
+      }
       const proj = Ink.fire(this.game, {
         x: px, y: py, angle,
         speed: opts.speed || 600,
@@ -720,6 +793,49 @@
           if (this.mirrorCharges <= 0) break;
         }
       }
+
+      this.splitCd = Math.max(0, this.splitCd - dt);
+      this.paperShieldCd = Math.max(0, this.paperShieldCd - dt);
+
+      // 环刃：围绕角色旋转的墨刃，每隔 0.45 秒切一次近身敌人。
+      if (this.orbit) {
+        this.orbitAngle += dt * 2.6;
+        this.orbitCd -= dt;
+        if (this.orbitCd <= 0) {
+          this.orbitCd = 0.45;
+          const blades = 2 + Math.max(0, this.orbitStacks - 1);
+          const hit = new Set();
+          for (let i = 0; i < blades; i++) {
+            const a = this.orbitAngle + i * U.TAU / blades;
+            const bx = this.x + Math.cos(a) * 54;
+            const by = this.y + Math.sin(a) * 54;
+            for (const e of this.game.enemies) {
+              if (e.dead || hit.has(e)) continue;
+              if (U.dist(bx, by, e.x, e.y) > 20 + e.radius) continue;
+              hit.add(e);
+              this.game.damageEnemy(e, 6 + this.level * 1.2 + (this.weapon ? this.weapon.damage * 0.12 : 0), {
+                source: 'passive', sourceKey: 'orbit', color: '#9fe8ff'
+              });
+              if (e.applySlow) e.applySlow(0.8, 0.5);
+              Ink.FX.hit(this.game, bx, by, a, '#9fe8ff', false);
+            }
+          }
+        }
+      }
+
+      // 缓时领域：贴身敌人持续变慢。
+      if (this.auraSlow) {
+        this.auraCd -= dt;
+        if (this.auraCd <= 0) {
+          this.auraCd = 0.35;
+          const radius = 150 + 16 * Math.max(0, this.auraSlowStacks - 1);
+          for (const e of this.game.enemies) {
+            if (!e.dead && U.dist(this.x, this.y, e.x, e.y) <= radius + e.radius && e.applySlow) {
+              e.applySlow(0.75, 0.55);
+            }
+          }
+        }
+      }
     }
 
     onWeaponHit(enemy, proj, opts) {
@@ -733,6 +849,19 @@
         // 叠加超载会降低触发间隔，最低 4 次命中一次。
         const need = Math.max(4, 8 - (this.overchargeStacks - 1));
         if (this.overchargeHits % need === 0) this.chainLightning(enemy);
+      }
+      // 裂墨：命中后向左右裂出两发弱弹，带独立短冷却防止无限连锁。
+      if (this.split && !opts._split && this.splitCd <= 0 && enemy && this.weapon) {
+        this.splitCd = 0.32;
+        const dmg = Math.max(4, (proj && proj.damage ? proj.damage : this.weapon.damage) * 0.4);
+        const base = this.weapon;
+        for (const side of [-1, 1]) {
+          this.weaponShot({
+            def: base, damage: dmg, angleOffset: side * 0.52, speed: 520,
+            radius: 5, life: 0.8, _split: true, visual: 'ink', color: '#c9a6ff'
+          });
+        }
+        Ink.FX.text(this.game, '裂', enemy.x, enemy.y - 22, '#c9a6ff', 13, 0.55);
       }
       if (!enemy.dead && this.char.onBasicHit) this.char.onBasicHit(enemy, proj);
     }
@@ -1078,6 +1207,15 @@
 
     takeDamage(amount, source) {
       if (this.dead || this.invuln > 0) return;
+      // 纸甲：完全挡下一次伤害，然后进入冷却。
+      if (this.paperShield && this.paperShieldCd <= 0) {
+        this.paperShieldCd = Math.max(4, 9 - 1.5 * Math.max(0, this.paperShieldStacks - 1));
+        this.invuln = 0.45;
+        Ink.FX.ring(this.game, { x: this.x, y: this.y, r0: 18, r1: 58, life: 0.35, color: '#e8dfc2', width: 4 });
+        Ink.FX.text(this.game, '纸甲', this.x, this.y - 34, '#e8dfc2', 14, 0.7);
+        this.game.audio.sfx('armor');
+        return;
+      }
       amount = Math.max(1, Math.round(amount));
       // 题扇 / 雨巷伞的格挡窗口，傩面变身的减伤
       if ((this.guardTimer || 0) > 0) amount *= 0.35;
@@ -1109,6 +1247,24 @@
         });
       }
 
+      if (this.hp <= 0 && this.reviveCharges > 0) {
+        // 涅槃：消耗一层免费复活，半血站起并清空周围敌弹。
+        this.reviveCharges--;
+        this.hp = Math.max(1, Math.round(this.maxHp * 0.5));
+        this.invuln = 2.5;
+        this.armorRegenTimer = 0;
+        for (const p of this.game.projectiles) {
+          if (p.owner === 'enemy' && U.dist(this.x, this.y, p.x, p.y) < 240) p.dead = true;
+        }
+        Ink.FX.burst(this.game, this.x, this.y, ['#ffb35c', '#e8c170', '#fff6dc'], 38, 240, {
+          size: 4, glow: true, lifeMult: 1.4
+        });
+        Ink.FX.ring(this.game, { x: this.x, y: this.y, r0: 10, r1: 170, life: 0.8, color: '#ffb35c', width: 5 });
+        Ink.FX.text(this.game, '涅槃 · 再起', this.x, this.y - 48, '#ffb35c', 18, 1.4);
+        this.game.addShake(9, 0.5);
+        this.game.audio.sfx('levelup');
+        return;
+      }
       if (this.hp <= 0) this.die();
     }
 
@@ -1180,6 +1336,31 @@
         ctx.restore();
       }
 
+      // 蓄力环：按住时从 0 蓄到满，满蓄有一圈金色脉冲。
+      if (this.weapon && this.weapon.charged && this.chargeTimer > 0) {
+        const k = U.clamp(this.chargeTimer, 0, 1);
+        ctx.save();
+        ctx.strokeStyle = 'rgba(232,193,112,.25)';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y - 2, 28, 0, U.TAU);
+        ctx.stroke();
+        ctx.strokeStyle = '#ffe6a8';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y - 2, 28, -Math.PI / 2, -Math.PI / 2 + U.TAU * k);
+        ctx.stroke();
+        if (k >= 1) {
+          ctx.globalAlpha = 0.45 + Math.sin(this.time * 16) * 0.2;
+          ctx.strokeStyle = '#fff6dc';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.arc(this.x, this.y - 2, 34, 0, U.TAU);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+
       Ink.Art.drawSprite(ctx, 'char:' + this.charId, this.x, this.y + bob, 3, {
         frame,
         flip: this.facing < 0,
@@ -1207,6 +1388,38 @@
           recoil: this.weaponRecoil,
           flash: this.weaponFlash
         });
+      }
+
+      // 环刃：绕身旋转的青色墨刃。
+      if (this.orbit) {
+        const blades = 2 + Math.max(0, this.orbitStacks - 1);
+        for (let i = 0; i < blades; i++) {
+          const a = this.orbitAngle + i * U.TAU / blades;
+          const bx = this.x + Math.cos(a) * 54;
+          const by = this.y + Math.sin(a) * 54;
+          ctx.save();
+          ctx.translate(bx, by);
+          ctx.rotate(a + Math.PI / 2);
+          ctx.fillStyle = '#9fe8ff';
+          ctx.globalAlpha = 0.85;
+          ctx.beginPath();
+          ctx.moveTo(0, -7); ctx.lineTo(3, 0); ctx.lineTo(0, 7); ctx.lineTo(-3, 0);
+          ctx.closePath();
+          ctx.fill();
+          ctx.restore();
+        }
+      }
+
+      // 纸甲就绪提示：腰间一层淡纸光。
+      if (this.paperShield && this.paperShieldCd <= 0) {
+        ctx.save();
+        ctx.globalAlpha = 0.35 + Math.sin(this.time * 3) * 0.1;
+        ctx.strokeStyle = '#e8dfc2';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y + 2, 20, 0, U.TAU);
+        ctx.stroke();
+        ctx.restore();
       }
 
       // 技能释放瞬间的通用光爆，强化“按下技能”的反馈

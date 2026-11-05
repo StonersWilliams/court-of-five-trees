@@ -85,10 +85,10 @@
       this.floor = opts.floor || game.floor || 1;
       this.radius = def.radius + (this.elite ? 2 : 0);
       this.scale = def.scale + (this.elite ? 0.35 : 0);
-      this.maxHp = def.hp * (1 + 0.44 * (this.floor - 1)) * (this.elite ? 1.9 : 1);
+      this.maxHp = def.hp * (1 + 0.60 * (this.floor - 1)) * (this.elite ? 1.9 : 1);
       this.hp = this.maxHp;
       this.speedBase = def.speed * (1 + 0.022 * (this.floor - 1)) * (this.elite ? 0.94 : 1);
-      this.damage = def.damage * (1 + 0.15 * (this.floor - 1)) * (this.elite ? 1.25 : 1);
+      this.damage = def.damage * (1 + 0.26 * (this.floor - 1)) * (this.elite ? 1.25 : 1);
       this.xpValue = Math.round((def.xp + this.floor) * (this.elite ? 2.2 : 1));
       this.color = def.color;
       this.spawnTimer = opts.spawnTimer === undefined ? 0.5 : opts.spawnTimer;
