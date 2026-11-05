@@ -246,6 +246,65 @@
       // 围巾
       px(c, 5, 8, 6, 1, '#d54f55');
       px(c, 10, 9, 2, 2, '#b53c44');
+    },
+
+    mouse(c, frame) {
+      humanoidBase(c, {
+        robe: '#6f5138', robeHi: '#8d6a49', robeDark: '#4a3524', sleeve: '#5e442f',
+        trim: '#d9a35c', belt: '#2e2116', boot: '#35261a', bootHi: '#a67c52',
+        skin: '#e2bf98', skinDark: '#a67b58', hair: '#4b3526', hairHi: '#6e5138',
+        accent: '#f2ca82', eye: '#20160f', eyeGlow: '#ffd89a'
+      }, frame);
+      // 鼠耳与胡须
+      box(c, 2, 2, 4, 4, '#8d6a49');
+      box(c, 10, 2, 4, 4, '#8d6a49');
+      px(c, 3, 3, 2, 2, '#d9a35c');
+      px(c, 11, 3, 2, 2, '#d9a35c');
+      px(c, 2, 7, 2, 1, '#e8c79f');
+      px(c, 12, 7, 2, 1, '#e8c79f');
+      // 掘地爪
+      px(c, 1, 9, 2, 3, '#c9a45c');
+      px(c, 0, 11, 2, 2, '#e8c170');
+      // 土屑
+      dot(c, 4, 14, '#d9a35c');
+      dot(c, 11, 14, '#8d6a49');
+    },
+
+    autumn(c, frame) {
+      humanoidBase(c, {
+        robe: '#375d6b', robeHi: '#4d7d89', robeDark: '#243f49', sleeve: '#31545f',
+        trim: '#9fe0ff', belt: '#1a3038', boot: '#22333b', bootHi: '#6f9aa3',
+        skin: '#f0d3ad', skinDark: '#bd8f70', hair: '#243d4a', hairHi: '#3f6373',
+        accent: '#b7d9ff', eye: '#16242a', eyeGlow: '#b7d9ff'
+      }, frame);
+      // 雨伞发饰
+      px(c, 3, 0, 10, 2, '#9fe0ff');
+      px(c, 4, 2, 8, 1, '#5f9db3');
+      px(c, 8, 2, 1, 6, '#6b4f36');
+      // 雨滴
+      px(c, 2, 8, 1, 3, '#8fd6ff');
+      px(c, 13, 9, 1, 2, '#b7d9ff');
+      dot(c, 12, 13, '#8fd6ff');
+    },
+
+    sanrui(c, frame) {
+      humanoidBase(c, {
+        robe: '#5e2f38', robeHi: '#7a404a', robeDark: '#3b1c24', sleeve: '#4d2730',
+        trim: '#e8c170', belt: '#2a1117', boot: '#2f171c', bootHi: '#8f5a4a',
+        skin: '#f0cba6', skinDark: '#b98a65', hair: '#2b1a1c', hairHi: '#4a2b30',
+        accent: '#ffe1a6', eye: '#1c1012', eyeGlow: '#ffd36b'
+      }, frame);
+      // 三枚瑞印
+      box(c, 2, 8, 3, 3, '#ffd36b');
+      box(c, 11, 8, 3, 3, '#8ef0c8');
+      box(c, 7, 0, 3, 3, '#ff9bb0');
+      // 瑞兽纹
+      px(c, 6, 10, 4, 3, '#e8c170');
+      dot(c, 7, 11, '#5e2f38');
+      dot(c, 9, 11, '#5e2f38');
+      // 袍角
+      px(c, 4, 13, 3, 1, '#ffd36b');
+      px(c, 9, 13, 3, 1, '#8ef0c8');
     }
   };
 

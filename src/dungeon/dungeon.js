@@ -133,33 +133,43 @@
       const rooms = [];
       // 第二庭起，普通关卡有概率变成精英房，让每层跑图不是完全固定。
       const encounter = () => (floorIndex >= 1 && rng.chance(0.16) ? 'elite' : 'battle');
-      const stage1 = this._makeRoom(floorIndex, rooms.length, encounter(), 0, 1, 1, rng);
+
+      // 每层入口先进入“准备房”：不刷怪，先整备再推门。
+      const prep = this._makeRoom(floorIndex, rooms.length, 'prep', 0, 1, 0, rng);
+      prep.name = '入庭准备';
+      prep.cleared = true;
+      prep.visited = true;
+      prep.prepared = false;
+      rooms.push(prep);
+
+      const stage1 = this._makeRoom(floorIndex, rooms.length, encounter(), 1, 1, 1, rng);
       rooms.push(stage1);
-      const stage2 = this._makeRoom(floorIndex, rooms.length, encounter(), 1, 1, 2, rng);
+      const stage2 = this._makeRoom(floorIndex, rooms.length, encounter(), 2, 1, 2, rng);
       rooms.push(stage2);
-      const stage3 = this._makeRoom(floorIndex, rooms.length, 'elite', 2, 1, 3, rng);
+      const stage3 = this._makeRoom(floorIndex, rooms.length, 'elite', 3, 1, 3, rng);
       rooms.push(stage3);
-      const stage4 = this._makeRoom(floorIndex, rooms.length, encounter(), 3, 1, 4, rng);
+      const stage4 = this._makeRoom(floorIndex, rooms.length, encounter(), 4, 1, 4, rng);
       rooms.push(stage4);
-      const eventRoom = this._makeRoom(floorIndex, rooms.length, 'event', 4, 1, 5, rng);
+      const eventRoom = this._makeRoom(floorIndex, rooms.length, 'event', 5, 1, 5, rng);
       eventRoom.eventId = rng.pick(EVENT_POOL);
       eventRoom.name = EVENT_NAMES[eventRoom.eventId];
       rooms.push(eventRoom);
-      const stage6 = this._makeRoom(floorIndex, rooms.length, encounter(), 5, 1, 6, rng);
+      const stage6 = this._makeRoom(floorIndex, rooms.length, encounter(), 6, 1, 6, rng);
       rooms.push(stage6);
-      const bossRoom = this._makeRoom(floorIndex, rooms.length, 'boss', 6, 1, 7, rng);
+      const bossRoom = this._makeRoom(floorIndex, rooms.length, 'boss', 7, 1, 7, rng);
       bossRoom.name = (bossConf && bossConf.roomName) || rng.pick(BOSS_ROOM_FALLBACK);
       rooms.push(bossRoom);
-      const shop = this._makeRoom(floorIndex, rooms.length, 'shop', 2, shopY, 0, rng);
+      const shop = this._makeRoom(floorIndex, rooms.length, 'shop', 3, shopY, 0, rng);
       shop.name = rng.pick(SHOP_NAMES);
       rooms.push(shop);
 
-      stage1.visited = true;
+      stage1.visited = false;
       stage1.cleared = false;
       eventRoom.cleared = false;
       shop.cleared = true;
       shop.visited = false;
 
+      this._connect(prep, stage1);
       this._connect(stage1, stage2);
       this._connect(stage2, stage3);
       this._connect(stage3, stage4);
@@ -176,7 +186,8 @@
         name: '第' + floorNumber + '庭 · ' + theme.name,
         sub: theme.sub || '',
         rooms,
-        startRoomId: stage1.id,
+        startRoomId: prep.id,
+        prepRoomId: prep.id,
         bossRoomId: bossRoom.id,
         shopRoomId: shop.id,
         eventRoomId: eventRoom.id,
@@ -186,7 +197,7 @@
         passiveOffered2: false,
         passiveOffered4: false,
         passiveOffered6: false,
-        mapW: 7,
+        mapW: 8,
         mapH: 3
       };
 
@@ -215,8 +226,12 @@
       else if (type === 'event') name = '奇遇';
       else name = '无名庭';
 
+      const layout = type === 'boss' ? 'court'
+        : type === 'shop' ? 'shop'
+        : type === 'prep' ? 'prep'
+        : rng.pick(['grove', 'archive', 'stream', 'court']);
       return {
-        id, floorIndex, index, type, name, stage,
+        id, floorIndex, index, type, name, stage, layout,
         mapX, mapY,
         spine: type !== 'shop',
         branch: type === 'shop',
@@ -297,13 +312,13 @@
 
     // ── 敌人生成计划 ──────────────────────────────────────
     _buildSpawnPlan(room, floorIndex, rng) {
-      if (room.type === 'boss' || room.type === 'shop' || room.type === 'event') return [];
+      if (room.type === 'boss' || room.type === 'shop' || room.type === 'event' || room.type === 'prep') return [];
       const eliteRoom = room.type === 'elite';
       // 九层逐层加量；第 3 关精英、第 6 关是庭主前最后一战，更密。
-      const base = 3 + floorIndex + rng.int(0, 1) +
-        (room.stage === 3 ? 1 : 0) + (room.stage === 6 ? 2 : 0);
+      const base = 3 + floorIndex * 2 + rng.int(0, 1) +
+        (room.stage === 3 ? 2 : 0) + (room.stage === 6 ? 3 : 0);
       const normalCount = Math.max(2, base - (eliteRoom ? 1 : 0));
-      const count = Math.min(14, normalCount + (eliteRoom ? 1 : 0));
+      const count = Math.min(18, normalCount + (eliteRoom ? 1 : 0));
       let pool = ENEMY_POOLS[Math.min(ENEMY_POOLS.length - 1, floorIndex)];
       if (pool.length === 1 && pool[0] === 'all') {
         pool = ['slime', 'skull', 'gargoyle', 'spider', 'tome', 'guard'];
@@ -348,7 +363,7 @@
 
     _buildObstacles(room, floorIndex, rng) {
       if (room.type === 'boss') {
-        // 五棵树：五个位置、五种形态，对应“庭有五棵树”
+        // 五棵树：五个位置、五种形态，对应“庭中有奇树”
         return [
           this._obstacle('tree', 186, 186, 0, 22),
           this._obstacle('tree', 774, 186, 1, 22),
@@ -370,6 +385,40 @@
           this._obstacle('crate', 760, 440, 1, 14)
         ];
       }
+      if (room.type === 'prep') {
+        // 准备房：两盏灯、两只箱，中央保持空旷。
+        return [
+          this._obstacle('pillar', 210, 210, 0, 14),
+          this._obstacle('pillar', 750, 210, 1, 14),
+          this._obstacle('crate', 210, 470, 2, 13),
+          this._obstacle('crate', 750, 470, 3, 13)
+        ];
+      }
+
+      // 每层不仅换主题，也换房间骨架：树庭 / 书库 / 水廊 / 四角庭。
+      const layouts = {
+        grove: () => [
+          this._obstacle('tree', 220, 200, 0, 20), this._obstacle('tree', 390, 170, 1, 20),
+          this._obstacle('tree', 580, 180, 2, 20), this._obstacle('tree', 740, 220, 3, 20),
+          this._obstacle('tree', 250, 470, 4, 20), this._obstacle('tree', 700, 480, 0, 20)
+        ],
+        archive: () => [
+          this._obstacle('crate', 200, 220, 0, 14), this._obstacle('crate', 200, 330, 1, 14),
+          this._obstacle('crate', 760, 240, 2, 14), this._obstacle('crate', 760, 380, 3, 14),
+          this._obstacle('pillar', 420, 180, 0, 15), this._obstacle('pillar', 540, 490, 1, 15)
+        ],
+        stream: () => [
+          this._obstacle('stone', 220, 330, 0, 15), this._obstacle('stone', 340, 280, 1, 14),
+          this._obstacle('stone', 460, 340, 2, 13), this._obstacle('stone', 580, 280, 3, 14),
+          this._obstacle('stone', 700, 340, 4, 15), this._obstacle('pillar', 480, 480, 0, 16)
+        ],
+        court: () => [
+          this._obstacle('tree', 210, 210, 0, 20), this._obstacle('tree', 750, 210, 1, 20),
+          this._obstacle('tree', 210, 470, 2, 20), this._obstacle('tree', 750, 470, 3, 20),
+          this._obstacle('pillar', 480, 200, 0, 15), this._obstacle('stone', 480, 480, 1, 14)
+        ]
+      };
+      if (layouts[room.layout]) return layouts[room.layout]();
 
       const A = Ink.ARENA;
       const count = 2 + floorIndex + rng.int(0, 2);

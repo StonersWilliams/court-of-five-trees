@@ -1,7 +1,7 @@
 /**
  * src/entities/dog.js
  * ------------------------------------------------------------
- * 聪明小狗的“影犬”召唤物。
+ * 御狶的“影犬”召唤物。
  *
  * 被动：自动寻找敌人并发射影弹；玩家受击时主动分担一部分伤害。
  * 被击破后进入召唤冷却，复活时继承一部分生命；由 smartdog.js 负责
@@ -41,6 +41,9 @@
       this.facing = 1;
       this.time = 0;
       this.hitFlash = 0;
+      this._target = null;
+      this.retarget = 0;
+      this.regenDelay = 0;
       this.dead = false; // 兼容投射物/敌人的通用检查
       this.isDog = true;
       this.bob = 0;
@@ -50,14 +53,23 @@
     }
 
     get target() {
+      if (this._target && this._target.dead) this._target = null;
+      return this._target || null;
+    }
+
+    _pickTarget() {
       let best = null;
       let bestD = 1e9;
+      const pack = this.game.dogs || [];
       for (const e of this.game.enemies) {
         if (e.dead || e.spawnTimer > 0) continue;
+        // 犬群尽量分散目标：别的犬已经锁定的敌人，优先级降低。
+        const claimed = pack.some(d => d !== this && d.alive && d._target === e);
+        if (claimed) continue;
         const d = U.dist(this.x, this.y, e.x, e.y);
         if (d < bestD) { bestD = d; best = e; }
       }
-      return best;
+      this._target = best;
     }
 
     update(dt) {
@@ -74,6 +86,26 @@
 
       const p = this.player;
       if (!p || p.dead) return;
+
+      // 脱战回血：附近 420px 内没有可攻击敌人时，3 秒后开始恢复。
+      let nearEnemy = false;
+      for (const e of this.game.enemies) {
+        if (!e.dead && U.dist(this.x, this.y, e.x, e.y) < 420) { nearEnemy = true; break; }
+      }
+      if (nearEnemy) {
+        this.regenDelay = 0;
+      } else {
+        this.regenDelay += dt;
+        if (this.regenDelay > 3 && this.hp < this.maxHp) {
+          this.hp = Math.min(this.maxHp, this.hp + this.maxHp * 0.09 * dt);
+        }
+      }
+
+      this.retarget -= dt;
+      if (this.retarget <= 0 || !this.target) {
+        this.retarget = 0.4;
+        this._pickTarget();
+      }
 
       // 离得太远时闪现回主人身边，避免卡在墙外
       if (U.dist(this.x, this.y, p.x, p.y) > 620) {

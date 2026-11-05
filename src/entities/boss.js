@@ -19,7 +19,7 @@
 
   const BOSSES = {
     truffle: {
-      id: 'truffle', name: '松露君', title: '菌伞下的甜梦',
+      id: 'truffle', name: '松露菌', title: '菌伞下的甜梦',
       baseType: 'slime', ai: 'truffle', hp: 560, speed: 54, damage: 14,
       radius: 42, color: '#c89b6a', xp: 125, interval: 2.0,
       roomName: '松露菌庭', quote: '来，尝一口。吃完就不疼了。'
@@ -297,7 +297,7 @@
       else this.orbit(dt, target, 220);
     }
 
-    // ── 松露君：孢子环 / 召唤菌团 / 踏地 ─────────────────
+    // ── 松露菌：孢子环 / 召唤菌团 / 踏地 ─────────────────
     truffle(dt, target) {
       this.orbit(dt, target, 210);
       if (!this._tickAttack(dt, 1.0)) return;

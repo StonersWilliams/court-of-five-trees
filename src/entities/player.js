@@ -18,11 +18,14 @@
 
   // 每个角色的初始兵刃：后续仍可自由更换/丢弃，不锁死职业。
   const STARTING_WEAPON = {
-    qiyun: 'chunqiu',
-    xiaoying: 'judgebrush',
-    xinyue: 'mirror',
-    ziyu: 'seal',
-    smartdog: 'puppet'
+    qiyun: 'qi_staff',
+    xiaoying: 'shadow_blade',
+    xinyue: 'heart_bell',
+    ziyu: 'ink_prison',
+    smartdog: 'dog_bone',
+    mouse: 'burrow_claw',
+    autumn: 'autumn_umbrella',
+    sanrui: 'three_seal'
   };
 
   class Player {
@@ -244,6 +247,16 @@
     fireWeapon() {
       const def = this.weapon;
       if (!def) return false;
+      // 近战武器不走弹道：挥出弧形，命中敌人并清除范围内敌方弹幕。
+      if (def.melee) {
+        this.swingWeapon(def);
+        this.weaponSpecial(def);
+        this.weaponCd = def.cooldown;
+        this.weaponCdMax = def.cooldown;
+        this.weaponRecoil = 1;
+        this.weaponFlash = 0.085;
+        return true;
+      }
       const shots = def.shots || 1;
       const spread = def.spread || 0;
       for (let i = 0; i < shots; i++) {
@@ -278,6 +291,44 @@
       if ((def.damage || 0) >= 40) this.game.addShake(3, 0.1);
       this.game.audio.sfx(def.sfx || 'shoot');
       return true;
+    }
+
+    swingWeapon(def) {
+      const range = def.range || 170;
+      const arc = def.arc || 1.5;
+      const a = this.aimAngle;
+      const dmg = (def.damage || 12) * (def.charged ? 1.85 : 1) * this.damageMultiplier();
+      let hits = 0;
+      for (const e of this.game.enemies.slice()) {
+        if (e.dead) continue;
+        const d = U.dist(this.x, this.y, e.x, e.y);
+        if (d > range + e.radius) continue;
+        if (Math.abs(U.angleDiff(U.angleTo(this, e), a)) > arc / 2) continue;
+        this.game.damageEnemy(e, dmg, {
+          source: 'weapon', sourceKey: def.id, color: def.color,
+          angle: a, knockback: def.knockback || 55
+        });
+        this.onWeaponHit(e, null, { def });
+        hits++;
+      }
+      // 近战挥击清除弹幕（这是“文房兵器”的核心防御价值）。
+      if (def.clearShots !== false) {
+        for (const pr of this.game.projectiles.slice()) {
+          if (pr.dead || pr.owner !== 'enemy') continue;
+          if (U.dist(this.x, this.y, pr.x, pr.y) > range + 26) continue;
+          if (Math.abs(U.angleDiff(U.angleTo(this, pr), a)) > arc / 2 + 0.2) continue;
+          pr.dead = true;
+          Ink.FX.burst(this.game, pr.x, pr.y, def.color || '#e8c170', 4, 70, { size: 2 });
+        }
+      }
+      Ink.FX.slash(this.game, {
+        x: this.x, y: this.y, angle: a, range, arc,
+        color: def.color || '#e8c170', life: 0.26, width: 2.5
+      });
+      Ink.FX.ring(this.game, { x: this.x, y: this.y, r0: 6, r1: 28, life: 0.2, color: def.color, width: 2 });
+      this.game.audio.sfx('slash');
+      if (hits > 0) this.game.addShake(1.7, 0.08);
+      return hits;
     }
 
     weaponShot(opts) {

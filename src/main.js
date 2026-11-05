@@ -16,11 +16,11 @@
   function boot() {
     const canvas = document.getElementById('game');
     if (!canvas) {
-      console.error('[庭有五棵树] 找不到 #game canvas');
+      console.error('[庭中有奇树] 找不到 #game canvas');
       return;
     }
     if (!Ink || !Ink.Game) {
-      console.error('[庭有五棵树] Ink.Game 未加载，请检查脚本顺序。');
+      console.error('[庭中有奇树] Ink.Game 未加载，请检查脚本顺序。');
       return;
     }
 

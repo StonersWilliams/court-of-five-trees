@@ -263,6 +263,13 @@
             this.game.choosePassive(choices[i]);
           }
         }
+      } else if (state === 'prep') {
+        const choices = this.game.prepChoices || [];
+        for (let i = 0; i < Math.min(3, choices.length); i++) {
+          if (input.wasPressed('Digit' + (i + 1), 'Numpad' + (i + 1))) {
+            this.game.choosePrep(choices[i].id);
+          }
+        }
       } else if (state === 'event') {
         const choices = this.game.eventChoices || [];
         for (let i = 0; i < Math.min(3, choices.length); i++) {
@@ -426,6 +433,9 @@
       } else if (state === 'shop') {
         this._drawHUD(ctx);
         this._drawShop(ctx);
+      } else if (state === 'prep') {
+        this._drawHUD(ctx);
+        this._drawPrep(ctx);
       } else if (state === 'event') {
         this._drawHUD(ctx);
         this._drawEvent(ctx);
@@ -491,13 +501,13 @@
     // ── 七幕序章 ──────────────────────────────────────────
     _drawIntro(ctx) {
       const acts = [
-        { t: '第一幕 · 空庭', s: '庭有五棵树，树下的椅子却只有四把。第五把一直空着。' },
-        { t: '第二幕 · 墨至', s: '有人把一砚未磨开的墨放在阶前。墨里沉着九个名字。' },
-        { t: '第三幕 · 门开', s: '九道门同时向内打开。每一道门后，都坐着一位不肯署名的庭主。' },
-        { t: '第四幕 · 借笔', s: '你从旧稿堆里抽出一支笔。笔杆上有前一位执棋者留下的指痕。' },
-        { t: '第五幕 · 入局', s: '棋盘不是棋盘，是一座不断重写的庭院。每清一页，就多一层。' },
-        { t: '第六幕 · 失名', s: '你开始记不清自己的名字，却记得每一位庭主的真名。' },
-        { t: '第七幕 · 最后一页', s: '最后一页没有字。五棵树在风里，等你落下第一笔。' }
+        { t: '第一幕 · 奇树', s: '庭中有奇树，绿叶发华滋。镜湖的水面，倒映着一块石头。石上十六个字：精勤求学，敦笃励志，果毅力行，忠恕任事。' },
+        { t: '第二幕 · 黄桷', s: '旁边一株黄桷树，树下一声旧铃。这里是西南交通大学。1896 年从山海关铁路官学堂起家，矿镐、水准仪、铁轨，刻在校徽上。' },
+        { t: '第三幕 · 文脉', s: '中文系就长在这所工科学校的骨缝里——小而精，出特色，做藏彝走廊的语言，做巴蜀方言的千年考据，做“文工交融”的摆渡人。' },
+        { t: '第四幕 · 交通', s: '校歌里唱：“灌输文化尚交通。”这里的“交通”，是天地交而万物通。可如今，九道影子截断了河道。竢实扬华，自强不息。' },
+        { t: '第五幕 · 旧物', s: '庭中那棵奇树还在。石桌上摆着一局没下完的棋，砚台边搁着一支没蘸墨的笔，批卷的刀笔压在旧稿上，方言调查笔记旁搁着一双听音的耳朵，黄桷树下挂着一声没停的铃。' },
+        { t: '第六幕 · 三兽', s: '树根处有新鲜的土，树梢上还挂着昨夜的雨，树影里蹲着三头不出声的小兽。九庭未倒。' },
+        { t: '第七幕 · 稿纸', s: '稿纸在你手里。' }
       ];
       const idx = Math.min(6, this.game.introIndex || 0);
       const act = acts[idx];
@@ -648,19 +658,19 @@
       ctx.stroke();
       ctx.restore();
 
-      text(ctx, '庭 有 五 棵 树', 480, 195, {
+      text(ctx, '庭 中 有 奇 树', 480, 195, {
         size: 62, color: PAL.parchment, align: 'center', bold: true,
         shadowColor: '#000', shadowX: 4, shadowY: 6
       });
-      text(ctx, 'COURT OF FIVE TREES', 480, 249, {
+      text(ctx, 'COURT OF WONDROUS TREES', 480, 249, {
         size: 16, color: PAL.gold, align: 'center', bold: true
       });
-      text(ctx, '五树成庭，九主守门。', 480, 294, {
+      text(ctx, '奇树成庭，九主守门。', 480, 294, {
         size: 15, color: PAL.parchment2, align: 'center'
       });
 
       const pulse = 0.55 + Math.sin(t * 2.4) * 0.18;
-      text(ctx, '九层 · 每层七关 · 九庭主 · 三十四兵刃', 480, 330, {
+      text(ctx, '九层 · 每层七关 · 九庭主 · 四十二兵刃', 480, 330, {
         size: 12, color: U.rgba(PAL.muted, pulse), align: 'center'
       });
 
@@ -687,7 +697,7 @@
       text(ctx, 'MIT License · 零依赖 · 程序化像素美术 / WebAudio 音效', 36, 580, {
         size: 9, color: 'rgba(109,99,136,.7)'
       });
-      text(ctx, 'v3.0', 924, 580, { size: 9, color: 'rgba(109,99,136,.7)', align: 'right' });
+      text(ctx, 'v3.1', 924, 580, { size: 9, color: 'rgba(109,99,136,.7)', align: 'right' });
     }
 
     // ── 角色选择 ──────────────────────────────────────────
@@ -696,29 +706,100 @@
       const list = Ink.CharacterList;
       this.selectIndex = U.clamp(this.selectIndex, 0, list.length - 1);
 
-      text(ctx, '选 择 你 的 执 棋 者', 480, 40, {
-        size: 27, color: PAL.parchment, align: 'center', bold: true
+      text(ctx, '选 择 你 的 同 行 者', 480, 38, {
+        size: 26, color: PAL.parchment, align: 'center', bold: true
       });
-      text(ctx, '五树成庭，五人入局。被动常驻，主动需冷却。', 480, 70, {
+      text(ctx, '奇树成庭，八人入局。被动常驻，主动需冷却。', 480, 66, {
         size: 11, color: PAL.muted, align: 'center'
       });
 
-      const x0 = 36, y0 = 92, cw = 168, ch = 418, gap = 12;
+      // 左侧角色列表：八人也能一屏放下，选中后右侧显示完整面板。
+      const lx = 30, ly = 88, lw = 250, rowH = 46, rowGap = 4;
       for (let i = 0; i < list.length; i++) {
-        this._drawCharacterCard(ctx, list[i], x0 + i * (cw + gap), y0, cw, ch, i === this.selectIndex, i);
+        const d = list[i];
+        const ry = ly + i * (rowH + rowGap);
+        const sel = i === this.selectIndex;
+        panel(ctx, lx, ry, lw, rowH, {
+          fill: sel ? 'rgba(35,30,48,.98)' : 'rgba(15,12,25,.9)',
+          border: sel ? PAL.gold : 'rgba(69,58,96,.8)',
+          accent: sel ? U.rgba(d.accent, .5) : 'rgba(232,193,112,.12)'
+        });
+        ctx.fillStyle = d.color;
+        ctx.fillRect(lx + 5, ry + 5, 4, rowH - 10);
+        Ink.Art.drawPortrait(ctx, d.id, lx + 30, ry + 23, 1.35, Math.floor(this.time * 2 + i) % 2);
+        text(ctx, d.name, lx + 52, ry + 20, {
+          size: 14, color: sel ? d.accent || PAL.gold : PAL.parchment, bold: true
+        });
+        text(ctx, d.role, lx + 52, ry + 35, { size: 9, color: PAL.muted });
+        text(ctx, '0' + (i + 1), lx + lw - 12, ry + 18, { size: 9, color: PAL.gold, align: 'right' });
+
+        this.buttons.push({
+          x: lx, y: ry, w: lw, h: rowH, label: d.name, screen: this.game.state,
+          onClick: () => { this.selectIndex = i; }
+        });
       }
 
-      this._button(ctx, { x: 36, y: 530, w: 150, h: 44 }, '返 回', {
+      const def = list[this.selectIndex];
+      const dx = 300, dy = 88, dw = 630, dh = 438;
+      panel(ctx, dx, dy, dw, dh, {
+        fill: 'rgba(18,15,28,.96)',
+        border: U.rgba(def.accent, .7),
+        accent: def.color
+      });
+      // 大立绘
+      ctx.fillStyle = U.rgba(def.color, .08);
+      ctx.fillRect(dx + 18, dy + 18, 172, 190);
+      Ink.Art.drawPortrait(ctx, def.id, dx + 104, dy + 116, 5.0, Math.floor(this.time * 2) % 2);
+      text(ctx, def.name, dx + 210, dy + 54, {
+        size: 34, color: def.accent || PAL.parchment, bold: true
+      });
+      text(ctx, def.title + ' · ' + def.role, dx + 212, dy + 78, {
+        size: 12, color: PAL.parchment2
+      });
+      text(ctx, '初始兵刃 · ' + (Ink.Weapons.get(Ink.Weapons.STARTING[def.id]) || {}).name, dx + 212, dy + 100, {
+        size: 10, color: PAL.gold
+      });
+
+      const stats = [
+        { label: '生命', value: def.hp, max: 110, color: '#e06a74' },
+        { label: '护甲', value: def.armor, max: 10, color: '#8fd6ff' },
+        { label: '移速', value: def.speed, max: 270, color: '#8ef0c8' }
+      ];
+      for (let i = 0; i < 3; i++) {
+        const sy = dy + 126 + i * 19;
+        text(ctx, stats[i].label, dx + 212, sy, { size: 9, color: PAL.muted });
+        bar(ctx, dx + 252, sy - 4, 120, 7, stats[i].value / stats[i].max, stats[i].color, { segments: false });
+        text(ctx, String(stats[i].value), dx + 384, sy, { size: 8, color: PAL.parchment2 });
+      }
+
+      ctx.fillStyle = 'rgba(232,193,112,.14)';
+      ctx.fillRect(dx + 210, dy + 196, dw - 232, 1);
+      text(ctx, '被动 · ' + def.passiveName, dx + 212, dy + 222, {
+        size: 12, color: PAL.gold, bold: true
+      });
+      wrapped(ctx, def.passiveDesc, dx + 212, dy + 240, dw - 240, {
+        size: 10, color: PAL.parchment2, lineHeight: 15, maxLines: 4
+      });
+      text(ctx, '主动 · ' + def.skillName, dx + 212, dy + 310, {
+        size: 12, color: def.accent || '#ff9bb0', bold: true
+      });
+      wrapped(ctx, def.skillDesc, dx + 212, dy + 328, dw - 240, {
+        size: 10, color: PAL.parchment2, lineHeight: 15, maxLines: 5
+      });
+      text(ctx, '冷却 ' + def.cooldown.toFixed(1) + 's   ·   射程 ' + def.range, dx + 212, dy + dh - 22, {
+        size: 9, color: PAL.muted
+      });
+
+      this._button(ctx, { x: 36, y: 540, w: 150, h: 40 }, '返 回', {
         size: 14,
         onClick: () => this.game.toTitle()
       });
-      const def = list[this.selectIndex];
-      this._button(ctx, { x: 742, y: 530, w: 182, h: 44 }, '以 ' + def.name + ' 入局', {
+      this._button(ctx, { x: 740, y: 540, w: 184, h: 40 }, '以 ' + def.name + ' 入局', {
         size: 15,
         selected: true,
         onClick: () => this.game.startRun(def.id)
       });
-      text(ctx, '← → 选择   ·   Enter 开始', 480, 552, {
+      text(ctx, '↑ ↓ 选择   ·   Enter 开始', 480, 562, {
         size: 10, color: 'rgba(207,192,157,.55)', align: 'center'
       });
     }
@@ -833,7 +914,7 @@
       bar(ctx, 32, 65, 246, 4, p.xp / p.xpNext, PAL.gold, { segments: false });
       text(ctx, 'XP', 282, 67, { size: 7, color: PAL.muted, align: 'right' });
 
-      // 影犬状态（仅聪明小狗）
+      // 影犬状态（仅御狶）
       if (game.dog && p.charId === 'smartdog') {
         const dog = game.dog;
         const mode = dog.alive ? '影犬' : '召回中 ' + Math.ceil(dog.respawnTimer) + 's';
@@ -851,8 +932,9 @@
           size: 13, color: PAL.gold, align: 'center', bold: true
         });
         if (room) {
-          const icon = room.type === 'boss' ? '庭主之间' : room.type === 'elite' ? '精英关卡' : room.type === 'shop' ? '行商' : room.type === 'event' ? '随机事件' : '战斗关卡';
-          text(ctx, room.name + '  ·  ' + icon, 480, 39, {
+          const icon = room.type === 'boss' ? '庭主之间' : room.type === 'elite' ? '精英关卡' : room.type === 'shop' ? '行商' : room.type === 'event' ? '随机事件' : room.type === 'prep' ? '' : '战斗关卡';
+          const line = icon ? room.name + '  ·  ' + icon : room.name;
+          text(ctx, line, 480, 39, {
             size: 10, color: PAL.parchment2, align: 'center'
           });
         }
@@ -1330,6 +1412,38 @@
     }
 
     // ── 随机事件 ──────────────────────────────────────────
+    _drawPrep(ctx) {
+      ctx.save();
+      ctx.fillStyle = 'rgba(4,3,9,.72)';
+      ctx.fillRect(0, 0, 960, 600);
+      ctx.restore();
+      panel(ctx, 120, 92, 720, 410, { fill: 'rgba(14,12,22,.98)', border: 'rgba(232,193,112,.55)' });
+      drawCornerMarks(ctx, 120, 92, 720, 410, PAL.gold);
+      text(ctx, '入 庭 准 备', 480, 132, { size: 27, color: PAL.gold, align: 'center', bold: true });
+      wrapped(ctx, this.game.prepNotice || '先整备，再推门。', 480, 164, 590, {
+        size: 11, color: PAL.parchment2, lineHeight: 18, align: 'center', maxLines: 2
+      });
+      const choices = (this.game.prepChoices || []).slice(0, 3);
+      const cw = 206, gap = 24;
+      const x0 = (960 - (choices.length * cw + (choices.length - 1) * gap)) / 2;
+      for (let i = 0; i < choices.length; i++) {
+        const c = choices[i];
+        const x = x0 + i * (cw + gap), y = 220, h = 196;
+        panel(ctx, x, y, cw, h, { fill: 'rgba(22,19,34,.96)', border: 'rgba(232,193,112,.45)' });
+        text(ctx, '0' + (i + 1), x + 12, y + 14, { size: 10, color: PAL.muted, bold: true });
+        text(ctx, c.name, x + cw / 2, y + 54, { size: 17, color: PAL.gold2, align: 'center', bold: true });
+        wrapped(ctx, c.desc, x + cw / 2, y + 88, cw - 34, {
+          size: 10.5, color: PAL.parchment2, lineHeight: 16, align: 'center', maxLines: 3
+        });
+        this._button(ctx, { x: x + 26, y: y + h - 44, w: cw - 52, h: 28 }, '整 备', {
+          size: 12, selected: true, onClick: () => this.game.choosePrep(c.id)
+        });
+      }
+      text(ctx, '准备房不刷怪；选择后进入第 1 关。', 480, 458, {
+        size: 10, color: 'rgba(207,192,157,.55)', align: 'center'
+      });
+    }
+
     _drawEvent(ctx) {
       ctx.save();
       ctx.fillStyle = 'rgba(4,3,9,.8)';
@@ -1572,7 +1686,7 @@
         size: 48, color: PAL.gold2, align: 'center', bold: true,
         shadowColor: '#2a1b00', shadowY: 5
       });
-      text(ctx, '三庭五树，九主尽数落子。', 480, 166, {
+      text(ctx, '一庭奇树，九主尽数落子。', 480, 166, {
         size: 12, color: PAL.parchment2, align: 'center'
       });
       Ink.Art.drawBossIcon(ctx, Ink.FLOOR_COUNT - 1, 480, 210, 2.2,
@@ -1664,7 +1778,7 @@
         '小影 · 近战刺客：突进标记，击杀刷新',
         '心阅 · 辅助防御：标记强敌，心域偏转',
         '字狱 · 中远封锁：叠印成狱，收笔爆发',
-        '聪明小狗 · 召唤协同：影犬嘲讽，代承伤害'
+        '御狶 · 召唤协同：影犬嘲讽，代承伤害'
       ];
       for (let i = 0; i < roles.length; i++) {
         text(ctx, roles[i], 128 + (i % 2) * 380, 386 + Math.floor(i / 2) * 24, {

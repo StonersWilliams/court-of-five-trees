@@ -1,7 +1,7 @@
 /**
  * src/entities/weapon.js
  * ------------------------------------------------------------
- * 《庭有五棵树》兵器库 v3。
+ * 《庭中有奇树》兵器库 v3。
  *
  * 25 把“文房 / 雅乐 / 民俗”主题武器，每把都有：
  *   - 独立基础伤害、冷却、射程和弹道；
@@ -35,42 +35,47 @@
       color: '#d24b4b', shape: 'brush', icon: 'brush', cooldown: 0.38,
       damage: 19, range: 310, shots: 1, spread: 0, speed: 620, radius: 6,
       life: 1.1, knockback: 18, trail: true, special: 'combo3',
-      desc: '三连挥笔；第三下甩出墨痕。每第三次命中额外写下一个“诛”字。'
+      melee: true, arc: 1.2, charged: true,
+      desc: '近战三连挥笔，第三下甩出墨痕并给敌人上“诛”印；挥击会扫落弧形内的弹幕。'
     },
     judgebrush: {
       id: 'judgebrush', name: '判官笔', rarity: 'rare', price: 26,
       color: '#c9a45c', shape: 'judgebrush', icon: 'blade', cooldown: 0.34,
       damage: 15, range: 178, shots: 1, spread: 0, speed: 760, radius: 5,
-      life: 0.6, pierce: 1, special: 'judge',
-      desc: '短距点刺，命中叠“罪”。对残血敌人处决；未处决则返还冷却。'
+      life: 0.6, pierce: 1, special: 'judge', melee: true, arc: 1.35,
+      clearShots: true,
+      desc: '近战短刺，命中叠“罪”并扫落弹幕；对残血敌人处决，未处决则返还部分冷却。'
     },
     ruler: {
       id: 'ruler', name: '戒尺', rarity: 'common', price: 16,
       color: '#c79a62', shape: 'ruler', icon: 'blade', cooldown: 0.46,
       damage: 24, range: 190, shots: 1, spread: 0, speed: 700, radius: 7,
-      life: 0.55, knockback: 42, special: 'slam3',
-      desc: '横拍；第三下震地。近身三连拍会把敌人打退。'
+      life: 0.55, knockback: 42, special: 'slam3', melee: true, arc: 1.45,
+      clearShots: true, charged: true,
+      desc: '近战横拍，第三下震地击退；挥击会扫落弹幕，慢而重的拍击伤害很高。'
     },
     gavel: {
       id: 'gavel', name: '惊堂木', rarity: 'rare', price: 22,
       color: '#a83232', shape: 'gavel', icon: 'bomb', cooldown: 0.62,
       damage: 22, range: 250, shots: 1, spread: 0, speed: 520, radius: 9,
-      life: 0.8, explode: 58, explodeMult: 0.55, special: 'stunwave',
-      desc: '砸地放出声波；每第四次拍案会震晕周围敌人。'
+      life: 0.8, explode: 58, explodeMult: 0.55, special: 'stunwave', melee: true,
+      arc: 1.35, clearShots: true, charged: true,
+      desc: '近战拍案，第四下放出震晕声波；挥击扫落弹幕，重击伤害高但出手慢。'
     },
     tishan: {
       id: 'tishan', name: '题扇', rarity: 'rare', price: 23,
       color: '#d8e3c2', shape: 'fan', icon: 'charm', cooldown: 0.4,
       damage: 13, range: 280, shots: 3, spread: 0.42, speed: 660, radius: 4,
-      life: 0.9, pierce: 0, special: 'fan',
-      desc: '开扇挥砍并连发扇骨。扇面会短暂格挡，格挡成功反弹墨点。'
+      life: 0.9, pierce: 0, special: 'fan', melee: true, arc: 1.7, clearShots: true,
+      desc: '近战开扇横扫并连发扇骨；扇面短暂格挡，第三下格挡并反弹墨点。'
     },
     umbrella: {
       id: 'umbrella', name: '雨巷伞', rarity: 'rare', price: 25,
       color: '#67b8a4', shape: 'umbrella', icon: 'charm', cooldown: 0.5,
       damage: 16, range: 220, shots: 2, spread: 0.3, speed: 560, radius: 6,
-      life: 1.0, slow: [0.55, 1.4], special: 'rainfield',
-      desc: '旋转伞骨近战；每第四下撑伞，留下减速雨巷。'
+      life: 1.0, slow: [0.55, 1.4], special: 'rainfield', melee: true, arc: 1.9,
+      clearShots: true,
+      desc: '近战旋转伞骨并扫落弹幕；第四下撑伞，留下减速雨巷。'
     },
     bamboo: {
       id: 'bamboo', name: '韦编竹简', rarity: 'common', price: 18,
@@ -91,14 +96,14 @@
       color: '#b78a5c', shape: 'qin', icon: 'orb', cooldown: 0.4,
       damage: 14, range: 520, shots: 2, spread: 0.12, speed: 540, radius: 6,
       life: 1.4, pierce: 2, special: 'sound',
-      desc: '拨弦发出音波；击杀会延长音波，形成连续回响。'
+      desc: '拨弦发出穿透音波；每第四下双环回响。'
     },
     pipa: {
       id: 'pipa', name: '琵琶行', rarity: 'epic', price: 35,
       color: '#a7729c', shape: 'pipa', icon: 'bow', cooldown: 0.46,
       damage: 17, range: 520, shots: 1, spread: 0, speed: 600, radius: 5,
       life: 1.4, bounce: 3, special: 'bounce',
-      desc: '音刃可弹墙；反弹次数越多，伤害越高。'
+      desc: '音刃可弹墙两次；在窄道里能连续折返。'
     },
     flute: {
       id: 'flute', name: '梅花箫', rarity: 'rare', price: 24,
@@ -126,14 +131,15 @@
       color: '#55606e', shape: 'inkstone', icon: 'bomb', cooldown: 0.75,
       damage: 24, range: 350, shots: 1, spread: 0, speed: 400, radius: 10,
       life: 1.1, slow: [0.45, 1.6], special: 'inkwave',
-      desc: '研墨泼出墨浪，范围伤害并致盲；每第四下墨浪更宽。'
+      desc: '研墨泼出墨浪，范围伤害并减速；每第四下墨浪更宽。'
     },
     inkstick: {
       id: 'inkstick', name: '徽墨', rarity: 'rare', price: 27,
       color: '#3f4552', shape: 'inkstick', icon: 'blade', cooldown: 0.58,
       damage: 30, range: 170, shots: 1, spread: 0, speed: 700, radius: 8,
-      life: 0.55, special: 'spin',
-      desc: '旋转墨锭近战；每第三下砸地留下黑印，黑印上的敌人受伤提升。'
+      life: 0.55, special: 'spin', melee: true, arc: 2.4, clearShots: true,
+      charged: true,
+      desc: '近战旋转墨锭并扫落弹幕；第三下砸地留下黑印，黑印上的敌人受伤提升。'
     },
     scroll: {
       id: 'scroll', name: '长卷', rarity: 'epic', price: 40,
@@ -161,7 +167,7 @@
       color: '#c49a62', shape: 'compass', icon: 'orb', cooldown: 0.44,
       damage: 13, range: 540, shots: 1, spread: 0, speed: 620, radius: 5,
       life: 1.3, homing: 2.1, special: 'markstrong',
-      desc: '磁针标记敌人；每进入新房间自动标记最强敌人，全队对其伤害提升。'
+      desc: '磁针标记最强敌人；攻击被标记目标时伤害提升。'
     },
     dice: {
       id: 'dice', name: '六艺骰', rarity: 'epic', price: 39,
@@ -202,8 +208,8 @@
       id: 'mask', name: '傩面', rarity: 'epic', price: 42,
       color: '#b54b45', shape: 'mask', icon: 'blade', cooldown: 0.62,
       damage: 26, range: 160, shots: 1, spread: 0, speed: 760, radius: 8,
-      life: 0.6, pierce: 2, special: 'mask',
-      desc: '戴上面具变身 8 秒，爪击、免疫减速；击杀延长变身，结束时驱散弹幕。'
+      life: 0.6, pierce: 2, special: 'mask', melee: true, arc: 1.6, clearShots: true,
+      desc: '近战爪击并扫落弹幕；第五下戴面具变身 8 秒，免疫减速，击杀延长变身。'
     }
   };
 
@@ -215,7 +221,7 @@
       damage: 52, range: 580, shots: 2, spread: 0.18, speed: 540, radius: 8,
       life: 1.6, explode: 74, explodeMult: 0.65, slow: [0.5, 1.8], ink: true,
       bossOnly: true, bossId: 'truffle', special: 'bossTruffle',
-      desc: '松露君的菌伞杖。每发都在地上种一小片毒雾，并留下墨印。'
+      desc: '松露菌的菌伞杖。每发都在地上种一小片毒雾，并留下墨印。'
     },
     sunstar: {
       id: 'sunstar', name: '环日星盘', rarity: 'relic', price: 0,
@@ -283,6 +289,67 @@
     }
   };
 
+  // ── 角色专属初始兵刃：只随角色出生，不会进入商店/随机掉落 ──
+  const STARTER_DEFS = {
+    qi_staff: {
+      id: 'qi_staff', name: '弈者笔', rarity: 'rare', price: 0, color: '#8fd6ff',
+      shape: 'brush', icon: 'brush', cooldown: 0.42, damage: 21, range: 330,
+      shots: 1, spread: 0, speed: 640, radius: 5, life: 1.2, pierce: 1,
+      special: 'combo3', starterFor: 'qiyun', starterOnly: true, hidden: true,
+      desc: '棋云的随身笔。第三下写出墨痕，留下一枚会引爆的“弈子”。'
+    },
+    shadow_blade: {
+      id: 'shadow_blade', name: '无光刃', rarity: 'rare', price: 0, color: '#ff8fb3',
+      shape: 'blade', icon: 'blade', cooldown: 0.28, damage: 17, range: 156,
+      shots: 1, spread: 0, speed: 760, radius: 5, life: 0.5, melee: true, arc: 1.55,
+      clearShots: true, starterFor: 'xiaoying', starterOnly: true, hidden: true,
+      desc: '小影的短刃。挥击成弧，斩落范围内敌方弹幕；命中带标记的敌人伤害更高。'
+    },
+    heart_bell: {
+      id: 'heart_bell', name: '听心铃', rarity: 'rare', price: 0, color: '#ffc2d4',
+      shape: 'orb', icon: 'orb', cooldown: 0.5, damage: 14, range: 440,
+      shots: 1, spread: 0, speed: 460, radius: 6, life: 1.5, homing: 2.4,
+      starterFor: 'xinyue', starterOnly: true, hidden: true,
+      desc: '心阅的听心铃。铃声会缓慢追向被标记的敌人，并为其叠加一层“洞察”。'
+    },
+    ink_prison: {
+      id: 'ink_prison', name: '狱毫', rarity: 'rare', price: 0, color: '#e8c170',
+      shape: 'judgebrush', icon: 'blade', cooldown: 0.46, damage: 18, range: 360,
+      shots: 1, spread: 0, speed: 560, radius: 6, life: 1.3, pierce: 2, ink: true,
+      starterFor: 'ziyu', starterOnly: true, hidden: true,
+      desc: '字狱的判笔。每一笔都带墨印，命中会给敌人叠字印；第五层墨印短暂封步。'
+    },
+    dog_bone: {
+      id: 'dog_bone', name: '唤犬骨哨', rarity: 'rare', price: 0, color: '#8ef0c8',
+      shape: 'flute', icon: 'orb', cooldown: 0.38, damage: 11, range: 500,
+      shots: 1, spread: 0, speed: 520, radius: 5, life: 1.4, homing: 1.8,
+      starterFor: 'smartdog', starterOnly: true, hidden: true,
+      desc: '御狶的骨哨。哨声会指引影犬扑向同一目标，并让犬群更愿意分散追击。'
+    },
+    burrow_claw: {
+      id: 'burrow_claw', name: '穿地爪', rarity: 'rare', price: 0, color: '#d9a35c',
+      shape: 'blade', icon: 'blade', cooldown: 0.34, damage: 19, range: 170,
+      shots: 1, spread: 0, speed: 780, radius: 6, life: 0.5, melee: true, arc: 1.4,
+      clearShots: true, starterFor: 'mouse', starterOnly: true, hidden: true,
+      desc: '小牢鼠的掘地爪。挥击成弧并扫落弹幕；从地下钻出后的第一击伤害翻倍。'
+    },
+    autumn_umbrella: {
+      id: 'autumn_umbrella', name: '秋霖伞', rarity: 'rare', price: 0, color: '#b7d9ff',
+      shape: 'umbrella', icon: 'charm', cooldown: 0.46, damage: 16, range: 340,
+      shots: 2, spread: 0.28, speed: 560, radius: 5, life: 1.1, slow: [0.6, 1.5],
+      special: 'rainfield', starterFor: 'autumn', starterOnly: true, hidden: true,
+      desc: '秋雨的旧伞。伞骨会洒出细雨，第三下撑伞留下一片减速雨阵；站在雨中额外回血。'
+    },
+    three_seal: {
+      id: 'three_seal', name: '三瑞印', rarity: 'rare', price: 0, color: '#e8c170',
+      shape: 'seal', icon: 'charm', cooldown: 0.56, damage: 15, range: 420,
+      shots: 1, spread: 0, speed: 480, radius: 7, life: 1.3, explode: 42, explodeMult: 0.6,
+      special: 'sealfield', starterFor: 'sanrui', starterOnly: true, hidden: true,
+      desc: '三瑞的印。落印会短暂封住敌人；福、禄、寿三兽存活时，印记伤害更高。'
+    }
+  };
+  Object.assign(DEFS, STARTER_DEFS);
+
   DEFS.fists = {
     id: 'fists', name: '空手', rarity: 'common', price: 0,
     color: '#d8cbb0', shape: 'fist', icon: 'blade', cooldown: 0.45,
@@ -291,9 +358,15 @@
   };
 
   Object.assign(DEFS, BOSS_DEFS);
-  const LIST = Object.keys(DEFS).filter((id) => !DEFS[id].bossOnly && !DEFS[id].hidden);
+  const LIST = Object.keys(DEFS).filter((id) => !DEFS[id].bossOnly && !DEFS[id].hidden && !DEFS[id].starterOnly);
   const BOSS_WEAPONS = {};
   for (const id of Object.keys(BOSS_DEFS)) BOSS_WEAPONS[BOSS_DEFS[id].bossId] = id;
+  // 角色 → 初始兵刃；初始兵刃不在 LIST 中，因此不会再次掉落或进货。
+  const STARTING = {};
+  for (const id of Object.keys(STARTER_DEFS)) {
+    const d = STARTER_DEFS[id];
+    if (d.starterFor) STARTING[d.starterFor] = id;
+  }
 
   function roll(rng) {
     return typeof rng === 'function' ? rng() : Math.random();
@@ -629,7 +702,7 @@
   Ink.WeaponList = LIST;
   Ink.BossWeapons = BOSS_WEAPONS;
   Ink.Weapons = {
-    Rarity, DEFS, LIST, BOSS_WEAPONS,
+    Rarity, DEFS, LIST, BOSS_WEAPONS, STARTING,
     randomForFloor, randomOffers, priceFor, drawIcon, drawHeld, get, bossFor
   };
 })();

@@ -1,7 +1,7 @@
 /**
  * src/game.js
  * ------------------------------------------------------------
- * 庭有五棵树 · 主状态机与地牢循环。
+ * 庭中有奇树 · 主状态机与地牢循环。
  *
  * 这个文件把引擎、角色、地牢、UI 串起来：
  *   - 场景切换：title → select → playing → levelup / passive / shop / paused / gameover / victory
@@ -25,7 +25,8 @@
     elite: '精英',
     boss: '层主',
     shop: '行商',
-    event: '奇遇'
+    event: '奇遇',
+    prep: '入庭准备'
   };
 
   // 随机事件：每层第 5 关。每个事件固定三选一，奖励是即时、可见的。
@@ -266,6 +267,8 @@
       this.passiveChoices = [];
       this.passivePending = false;
       this.eventChoices = [];
+      this.prepChoices = [];
+      this.prepNotice = '';
       this.eventNotice = '';
       this.endingChoices = [];
       this.endingResult = null;
@@ -340,6 +343,8 @@
       this.passiveChoices = [];
       this.passivePending = false;
       this.eventChoices = [];
+      this.prepChoices = [];
+      this.prepNotice = '';
       this.eventNotice = '';
       this.endingChoices = [];
       this.endingResult = null;
@@ -409,6 +414,8 @@
       this.passiveChoices = [];
       this.passivePending = false;
       this.eventChoices = [];
+      this.prepChoices = [];
+      this.prepNotice = '';
       this.eventNotice = '';
       this.endingChoices = [];
       this.endingResult = null;
@@ -422,7 +429,7 @@
 
       this.dungeon = new Ink.Dungeon();
       this.player = new Ink.Player(this, charId);
-      // 聪明小狗在角色 onSpawn 里创建影犬；其他角色保持为空。
+      // 御狶在角色 onSpawn 里创建影犬；其他角色保持为空。
       if (charId !== 'smartdog') this.dog = null;
       this.dogs = this.dog ? [this.dog] : [];
 
@@ -536,6 +543,40 @@
       this.ui.showToast('事件兵器 · 已落在脚边', PAL.parchment, 2.0);
     }
 
+    openPrep() {
+      const room = this.room;
+      if (!room || room.type !== 'prep' || room.prepared) return;
+      this.prepChoices = [
+        { id: 'heal', name: '焚香调息', desc: '回复 32% 最大生命，准备迎战。' },
+        { id: 'armor', name: '研墨护心', desc: '获得 8 点护甲，抵挡第一轮伤害。' },
+        { id: 'coins', name: '清点盘缠', desc: '获得 15 枚金币，留给下一间行商。' }
+      ];
+      this.prepNotice = this.floorData.name + '。先整备，再推门。';
+      this.state = 'prep';
+      this.touchMove = { x: 0, y: 0 };
+      this.skillRequest = false;
+      this.audio.sfx('ui');
+    }
+
+    choosePrep(id) {
+      if (this.state !== 'prep' || !this.player) return;
+      const p = this.player;
+      if (id === 'heal') {
+        p.heal(p.maxHp * 0.32);
+      } else if (id === 'armor') {
+        // 准备房的护甲是“额外护甲”，提高上限后再补满，避免被角色基础护甲上限吃掉。
+        p.maxArmor += 8;
+        p.addArmor(8);
+      } else if (id === 'coins') {
+        p.addCoins(15);
+      }
+      if (this.room) this.room.prepared = true;
+      this.prepChoices = [];
+      this.state = 'playing';
+      this.doorCooldown = 0.5;
+      this.audio.sfx('door');
+    }
+
     openEvent() {
       const room = this.room;
       if (!room || room.type !== 'event') return;
@@ -554,6 +595,8 @@
       if (!choice || typeof choice.apply !== 'function') return;
       choice.apply(this);
       this.eventChoices = [];
+      this.prepChoices = [];
+      this.prepNotice = '';
       this.room.cleared = true;
       this.dungeon.markCleared(this.floorData, this.room);
       this.runStats.rooms++;
@@ -619,7 +662,7 @@
 
     // ── 地牢 / 房间 ──────────────────────────────────────
     /**
-     * 聪明小狗的影犬群：每层多一只，最多 8 只。
+     * 御狶的影犬群：每层多一只，最多 8 只。
      * 主犬沿用旧存档的 game.dog，其余作为 companion 加入 game.dogs。
      */
     syncDogPack() {
@@ -706,7 +749,8 @@
       this.touchMove = { x: 0, y: 0 };
       this.runStats.floor = this.floor;
       this.audio.setScene('play');
-      this.ui.showToast('第 ' + fd.number + ' 层 · 关卡 1 / 7', fd.theme.accent || PAL.gold, 2.2);
+      this.ui.showToast(fd.name + ' · 先入准备房', fd.theme.accent || PAL.gold, 3.0);
+      if (room.type === 'prep') this.openPrep();
     }
 
     enterRoom(targetId, viaSide = null) {
@@ -765,6 +809,10 @@
 
       if (target.type === 'shop') {
         this.openShop();
+        return;
+      }
+      if (target.type === 'prep' && !target.prepared) {
+        this.openPrep();
         return;
       }
       if (target.type === 'event' && !target.cleared) {
@@ -1177,7 +1225,7 @@
       // 心阅：被动减伤
       amount = p.char.beforeDamage(amount, source);
 
-      // 聪明小狗：犬群依次代承，主犬优先。
+      // 御狶：犬群依次代承，主犬优先。
       const pack = (this.dogs && this.dogs.length) ? this.dogs : (this.dog ? [this.dog] : []);
       for (const d of pack) {
         if (amount <= 0) break;
@@ -1244,9 +1292,10 @@
 
       // 层主专属武器：作为地面掉落物出现，不自动覆盖玩家当前武器。
       // 玩家可以主动捡起，也可以选择保留自己的兵刃。
-      const bossWeapon = Ink.Weapons.bossFor(this.floorData.bossId);
+      const bossWeaponId = Ink.Weapons.bossFor(this.floorData.bossId);
+      const bossWeapon = Ink.Weapons.get(bossWeaponId);
       if (bossWeapon && boss) {
-        this.dropWeaponPickup(bossWeapon.id, boss.x, boss.y, false);
+        this.dropWeaponPickup(bossWeaponId, boss.x, boss.y, false);
         FX.text(this, '庭主遗物', boss.x, boss.y - 58, bossWeapon.color, 15, 2.0);
         FX.ring(this, { x: boss.x, y: boss.y, r0: 8, r1: 90, life: 0.7, color: bossWeapon.color, width: 2 });
         this.ui.showToast('庭主遗物 ·「' + bossWeapon.name + '」已掉落', bossWeapon.color, 3.0);
@@ -1549,7 +1598,7 @@
       } else if (id === 'brush') {
         result = { id: 'proof', name: '校勘', text: '朱笔落下，错字被一一改正。你走出庭门时，身后传来九声很轻的“可”。' };
       } else if (id === 'white' && s.fragments >= 3) {
-        result = { id: 'clean', name: '清稿', text: '白墨覆盖了所有批注。庭有五棵树，纸上一片干净。' };
+        result = { id: 'clean', name: '清稿', text: '白墨覆盖了所有批注。庭中有奇树，纸上一片干净。' };
       } else {
         result = { id: 'reject', name: '退稿', text: '你没能写完最后一页。庭门合上，稿纸被风吹回第一层。' };
       }

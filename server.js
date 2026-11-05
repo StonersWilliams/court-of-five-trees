@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * 庭有五棵树 · 本地静态服务器
+ * 庭中有奇树 · 本地静态服务器
  * ------------------------------------------------------------
  * 游戏本身不需要服务器：直接双击 index.html 即可运行。
  * 这个文件只提供一个零依赖的本地 HTTP 服务，方便：
@@ -82,7 +82,7 @@ const server = http.createServer((req, res) => {
 
 server.listen(PORT, HOST, () => {
   const local = `http://127.0.0.1:${PORT}`;
-  console.log('\n  庭有五棵树 · Court of Five Trees');
+  console.log('\n  庭中有奇树 · Court of Wondrous Trees');
   console.log('  ─────────────────────────────');
   console.log(`  本地:   ${local}`);
   if (HOST === '0.0.0.0') {

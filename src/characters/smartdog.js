@@ -1,6 +1,6 @@
 /**
  * src/characters/smartdog.js
- * 聪明小狗 —— 召唤协同
+ * 御狶 —— 召唤协同
  *
  * 被动「影犬」：自带一只自动攻击的影犬，会替主人分担 34% 伤害；
  *               影犬被击破时回复 6 点护甲，并缩短 3 秒召唤时间。
@@ -105,7 +105,7 @@
 
   Ink.registerCharacter({
     id: 'smartdog',
-    name: '聪明小狗',
+    name: '御狶',
     title: '庭前驯兽师',
     role: '召唤 · 协同',
     color: PAL.smartdog,
@@ -118,10 +118,10 @@
     range: 540,
     cooldown: 8.5,
     skillName: '影犬·冲锋',
-    skillDesc: '命令影犬冲锋并嘲讽周围敌人 3.4 秒；影犬被击破时立即以 50% 生命复活。',
-    passiveName: '影犬',
-    passiveDesc: '影犬自动攻击并分担 34% 伤害；每层多一只，最多 8 只；被击破时回复 6 护甲并缩短召唤时间。',
-    quote: '别怕，它不咬人——它只咬不听话的。',
+    skillDesc: '命令整群影犬冲锋，分散扑咬并嘲讽周围敌人 3.4 秒；被击破的影犬立即以 50% 生命复活。',
+    passiveName: '影犬群',
+    passiveDesc: '影犬自动攻击并分担 34% 伤害；每层多一只，最多 8 只；脱战后缓慢回血，被击破时回复 6 护甲并缩短召唤时间。',
+    quote: '别怕，它们不咬人——只咬不听话的。',
     create(player, game) { return new SmartDog(player, game); }
   });
 })();
