@@ -1261,9 +1261,9 @@
       // 按获得顺序去重，双列展示，尽量把所有机缘放在左侧可检视。
       const ids = [];
       for (const id of p.passives) if (!ids.includes(id)) ids.push(id);
-      const shown = ids.slice(0, 16);
+      const shown = ids;
       const rows = Math.ceil(shown.length / 2);
-      const h = 26 + rows * 16 + (ids.length > 16 ? 13 : 0);
+      const h = 26 + rows * 16;
       const x = 14, y = 92, w = 226, colW = 108;
       panel(ctx, x, y, w, h, { fill: 'rgba(8,6,14,.82)' });
       text(ctx, '机 缘', x + 9, y + 14, { size: 9, color: PAL.gold, bold: true });
@@ -1283,9 +1283,6 @@
         text(ctx, '×' + (p.passiveStacks[id] || 1), cx + colW - 10, ry + 9, {
           size: 8, color: PAL.gold, align: 'right'
         });
-      }
-      if (ids.length > 16) {
-        text(ctx, '…另有 ' + (ids.length - 16) + ' 种', x + 9, y + h - 4, { size: 8, color: PAL.muted });
       }
     }
 
