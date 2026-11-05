@@ -68,7 +68,7 @@
     },
     edo: {
       id: 'edo', name: '江户十二口女', title: '十二张嘴的都市传说',
-      baseType: 'spider', ai: 'edo', hp: 680, speed: 68, damage: 17,
+      baseType: 'spider', ai: 'edo', hp: 800, speed: 68, damage: 19,
       radius: 42, color: '#c084fc', xp: 170, interval: 1.8,
       roomName: '十二口庭', quote: '别数我的嘴，数你的心跳。'
     }

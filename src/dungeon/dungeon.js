@@ -103,6 +103,23 @@
       for (let i = 0; i < FLOOR_COUNT; i++) {
         this.floors.push(this.generateFloor(i));
       }
+      // 终局「第十席」需要五份残稿：先为每层随机非残稿事件，
+      // 再随机抽五层改成「废稿堆」，确保总数恰好为 5。
+      const nonManuscript = EVENT_POOL.filter((id) => id !== 'manuscript');
+      for (const floor of this.floors) {
+        const ev = floor.rooms.find((r) => r.type === 'event');
+        if (!ev) continue;
+        ev.eventId = U.pick(nonManuscript);
+        ev.name = EVENT_NAMES[ev.eventId];
+      }
+      const manuscriptFloors = U.shuffle(this.floors.map((_, i) => i)).slice(0, 5);
+      for (const i of manuscriptFloors) {
+        const floor = this.floors[i];
+        const ev = floor.rooms.find((r) => r.type === 'event');
+        if (!ev) continue;
+        ev.eventId = 'manuscript';
+        ev.name = EVENT_NAMES.manuscript;
+      }
     }
 
     generateFloor(floorIndex) {

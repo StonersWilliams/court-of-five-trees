@@ -47,7 +47,7 @@ intro → title → select → playing ⇄ paused
 
 - 序章 7 幕，每幕 11 秒；`Game.advanceIntro()` / `skipIntro()`；完成后写 `localStorage['court.introSeen']`。
 - 终局四选一：`white` 白墨、`brush` 朱笔、`fire` 火、`seat` 落座。
-- 残稿 `runStats.fragments`：事件「废稿堆 — 捡起残稿」+1，上限 5。
+- 残稿 `runStats.fragments`：事件「废稿堆 — 捡起残稿」+1，上限 5；九层中固定随机五层生成废稿堆，保证「第十席」条件可达。
 - 真名 `runStats.trueNames` / 庭主印 `runStats.seals`：每击败一位庭主 +1。
 - 判定：落座 + 5 残稿 + 9 真名 + 3 印 → **第十席**；火 → **焚稿**；朱笔 → **校勘**；白墨 + 3 残稿 → **清稿**；否则 **退稿**。
 
@@ -325,7 +325,7 @@ skillCdMax = baseCooldown × max(0.55, 1 - 0.10 × cooldown)
 | 六月云之末 | 600 | 16 | 58 | 云雨、天雷束、雾隐传送 |
 | 伦敦塔 | 720 | 18 | 42 | 十字钟光、砖雨、钟摆环 |
 | 大大怪 | 760 | 18 | 48 | 冲撞、落石、踏地 |
-| 江户十二口女 | 680 | 17 | 68 | 十二口扇面、传送、咒域 |
+| 江户十二口女 | 800 | 19 | 68 | 十二口扇面、传送、咒域 |
 
 ### 8.3 AI 约定
 
