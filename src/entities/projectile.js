@@ -219,7 +219,7 @@
       this.dead = true;
       const hitAngle = Math.atan2(this.vy, this.vx);
       if (this.onHit) this.onHit(game, p, this);
-      game.damagePlayer(this.damage, this.source || this);
+      game.damagePlayer(this.damage, this.source || this, { ranged: true });
       Ink.FX.hit(game, this.x, this.y, hitAngle, this.color);
     }
 

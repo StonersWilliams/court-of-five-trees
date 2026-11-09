@@ -500,7 +500,7 @@
     // ── 障碍物 ──────────────────────────────────────────
     _obstacle(type, x, y, variant, r) {
       const destructible = type === 'crate';
-      const trap = type === 'spike';
+      const trap = type === 'spike' || type === 'flame' || type === 'arrow';
       const hp = destructible ? 22 : 1;
       return {
         type, x, y, variant: variant || 0, r: r || 16,
@@ -548,25 +548,25 @@
           this._obstacle('tree', 220, 200, 0, 20), this._obstacle('tree', 390, 170, 1, 20),
           this._obstacle('tree', 580, 180, 2, 20), this._obstacle('tree', 740, 220, 3, 20),
           this._obstacle('tree', 250, 470, 4, 20), this._obstacle('tree', 700, 480, 0, 20),
-          this._obstacle('spike', 480, 330, 0, 16)
+          this._obstacle('flame', 480, 330, 0, 16)
         ],
         archive: () => [
           this._obstacle('crate', 200, 220, 0, 14), this._obstacle('crate', 200, 330, 1, 14),
           this._obstacle('crate', 760, 240, 2, 14), this._obstacle('crate', 760, 380, 3, 14),
           this._obstacle('pillar', 420, 180, 0, 15), this._obstacle('pillar', 540, 490, 1, 15),
-          this._obstacle('spike', 480, 330, 0, 16)
+          this._obstacle('arrow', 480, 330, 0, 16)
         ],
         stream: () => [
           this._obstacle('stone', 220, 330, 0, 15), this._obstacle('stone', 340, 280, 1, 14),
           this._obstacle('stone', 460, 340, 2, 13), this._obstacle('stone', 580, 280, 3, 14),
           this._obstacle('stone', 700, 340, 4, 15), this._obstacle('pillar', 480, 480, 0, 16),
-          this._obstacle('spike', 480, 400, 0, 16)
+          this._obstacle('flame', 480, 400, 0, 16)
         ],
         court: () => [
           this._obstacle('tree', 210, 210, 0, 20), this._obstacle('tree', 750, 210, 1, 20),
           this._obstacle('tree', 210, 470, 2, 20), this._obstacle('tree', 750, 470, 3, 20),
           this._obstacle('pillar', 480, 200, 0, 15), this._obstacle('stone', 480, 480, 1, 14),
-          this._obstacle('spike', 480, 330, 0, 16)
+          this._obstacle('arrow', 480, 330, 0, 16)
         ]
       };
       if (layouts[room.layout]) return layouts[room.layout]();
@@ -600,7 +600,7 @@
         out.push(this._obstacle(type, x, y, rng.int(0, 4), type === 'tree' ? 19 : type === 'pillar' ? 15 : 13));
       }
       if (rng.chance(0.35)) {
-        out.push(this._obstacle('spike', 480, 330, 0, 16));
+        out.push(this._obstacle(rng.pick(['spike', 'flame', 'arrow']), 480, 330, 0, 16));
       }
       return out;
     }

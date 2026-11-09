@@ -149,6 +149,36 @@
       desc: '对 240 距离外的敌人伤害 +25%，\n每层再 +5%。',
       apply(p) { p.deadeye = true; p.deadeyeStacks = (p.deadeyeStacks || 0) + 1; }
     },
+    vampire: {
+      id: 'vampire', name: '饮墨', color: '#ff7d9a',
+      desc: '武器每次命中回复 0.08 点生命，可叠加。',
+      apply(p) { p.hitHeal = (p.hitHeal || 0) + 0.08; }
+    },
+    chain: {
+      id: 'chain', name: '连坐', color: '#c9a6ff',
+      desc: '武器每第 5 次命中，额外伤害附近 2 名敌人；每层降低触发间隔。',
+      apply(p) { p.chain = true; p.chainStacks = (p.chainStacks || 0) + 1; }
+    },
+    thunder: {
+      id: 'thunder', name: '雷殛', color: '#8fd6ff',
+      desc: '武器每第 7 次命中召来一道连锁墨雷；每层降低触发间隔。',
+      apply(p) { p.thunder = true; p.thunderStacks = (p.thunderStacks || 0) + 1; }
+    },
+    slowAura: {
+      id: 'slowAura', name: '寒域', color: '#9fd9ff',
+      desc: '身边 150 范围的敌人持续被减速，每层扩大范围。',
+      apply(p) { p.slowAura = true; p.slowAuraStacks = (p.slowAuraStacks || 0) + 1; }
+    },
+    bounty: {
+      id: 'bounty', name: '悬赏', color: '#ffd36b',
+      desc: '金币与关卡结算金币 +25%，可叠加。',
+      apply(p) { p.coinMult += 0.25; }
+    },
+    siphon: {
+      id: 'siphon', name: '汲能', color: '#8ef0c8',
+      desc: '每次击杀额外回复 3 点能量，可叠加。',
+      apply(p) { p.energyOnKill = (p.energyOnKill || 0) + 3; }
+    },
     paperShield: {
       id: 'paperShield', name: '纸甲', color: '#e8dfc2',
       desc: '每 9 秒获得一层纸甲，完全挡下一次伤害。\n每层缩短冷却。',

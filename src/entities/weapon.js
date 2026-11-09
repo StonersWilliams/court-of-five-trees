@@ -234,6 +234,37 @@
       chargeAuto: false, chargeChain: true, chargeSlow: 0.5,
       chargePerfect: [0.55, 0.72], chargePerfectMult: 2.6,
       desc: '守城旧弓。按住蓄力，松手发射；在金色完美区间释放可穿透整条走廊并造成 2.6 倍伤害，蓄力时移速降低。'
+    },
+    thunder_spear: {
+      id: 'thunder_spear', name: '雷引长枪', rarity: 'epic', price: 44,
+      color: '#9fd8ff', shape: 'staff', icon: 'staff', cooldown: 1.0, chargeTime: 1.25,
+      damage: 70, range: 620, shots: 1, spread: 0, speed: 780, radius: 8, life: 1.5,
+      pierce: 5, knockback: 80, trail: true, charged: true, chargeAuto: false,
+      chargeSlow: 0.55, chargePerfect: [0.66, 0.84], chargePerfectMult: 2.4,
+      desc: '长枪引雷。按住蓄力，在蓝白完美区间松手，枪身带电贯穿一线敌人；蓄力时移速降低。'
+    },
+    cloud_bow: {
+      id: 'cloud_bow', name: '云纹重弓', rarity: 'rare', price: 34,
+      color: '#b7d9ff', shape: 'bow', icon: 'bow', cooldown: 1.0, chargeTime: 0.9,
+      damage: 40, range: 600, shots: 1, spread: 0, speed: 780, radius: 6, life: 1.4,
+      homing: 1.2, knockback: 30, trail: true, charged: true, chargeAuto: true,
+      chargeSlow: 0.65, desc: '云纹旧弓。按住蓄力，满蓄自动放出一支追踪云箭；适合边退边打。'
+    },
+    ink_halberd: {
+      id: 'ink_halberd', name: '墨龙戟', rarity: 'epic', price: 48,
+      color: '#7f8cff', shape: 'blade', icon: 'blade', cooldown: 1.15, chargeTime: 1.0,
+      damage: 64, range: 205, shots: 1, spread: 0, speed: 760, radius: 9, life: 0.62,
+      knockback: 110, melee: true, arc: 2.1, clearShots: true, charged: true,
+      chargeAuto: false, chargeSlow: 0.48, chargePerfect: [0.62, 0.8], chargePerfectMult: 2.2,
+      desc: '长柄墨戟。按住蓄力，松手横扫大扇形，扫落弹幕并击退；完美区间伤害更高。'
+    },
+    bell_hammer: {
+      id: 'bell_hammer', name: '惊夜钟槌', rarity: 'rare', price: 30,
+      color: '#d8b87a', shape: 'hammer', icon: 'bomb', cooldown: 1.2, chargeTime: 1.05,
+      damage: 44, range: 175, shots: 1, spread: 0, speed: 680, radius: 10, life: 0.6,
+      knockback: 130, melee: true, arc: 1.95, clearShots: true, charged: true,
+      chargeAuto: true, chargeSlow: 0.45,
+      desc: '钟楼旧槌。满蓄自动砸地，震退周围敌人并扫落弹幕；蓄力时移速明显降低。'
     }
   };
 
