@@ -20,19 +20,23 @@
   const Ink = window.Ink;
   const U = Ink.U;
 
-  const FLOOR_COUNT = 9;
+  const FLOOR_COUNT = 5;
 
-  // 九层，每层一位庭主；不再在三个 Boss 中随机，保证九位都能遇到。
+  // 前三层九庭主轮值，第四层外庭三客，第五层固定创世者。
   const BOSS_POOLS = [
-    ['truffle'],
-    ['sunstar'],
-    ['ninesun'],
-    ['peach'],
-    ['oga'],
-    ['june'],
-    ['tower'],
-    ['bigmon'],
-    ['edo']
+    ['truffle', 'sunstar', 'ninesun'],
+    ['peach', 'oga', 'june'],
+    ['tower', 'bigmon', 'edo'],
+    ['buzz', 'liu', 'yuenu'],
+    ['creator']
+  ];
+
+  const FLOOR_NAMES = [
+    { name: '入门庭', sub: '墨与火' },
+    { name: '中庭', sub: '封与雨' },
+    { name: '深庭', sub: '锁与声' },
+    { name: '外庭', sub: '客与技' },
+    { name: '目录之外', sub: '创世者' }
   ];
 
   // 每层的地图骨架。节点坐标只影响小地图与通道走向；关卡顺序仍固定。
@@ -139,7 +143,8 @@
         ev.eventId = U.pick(nonManuscript);
         ev.name = EVENT_NAMES[ev.eventId];
       }
-      const manuscriptFloors = U.shuffle(this.floors.map((_, i) => i)).slice(0, 5);
+      // 五层里留两个“废稿堆”事件；其余残稿从庭主掉落与跨局收藏补足。
+      const manuscriptFloors = U.shuffle(this.floors.map((_, i) => i)).slice(0, 2);
       for (const i of manuscriptFloors) {
         const floor = this.floors[i];
         const ev = floor.rooms.find((r) => r.type === 'event');
@@ -153,8 +158,12 @@
       const rng = this.rng;
       const floorNumber = floorIndex + 1;
       const theme = Ink.Art.THEMES[floorIndex % Ink.Art.THEMES.length];
-      const bossId = BOSS_POOLS[floorIndex][0];
+      const bossId = rng.pick(BOSS_POOLS[floorIndex]);
       const bossConf = (Ink.Bosses && Ink.Bosses[bossId]) || null;
+      // 第五层没有走廊：推开门就是巨书战场。
+      if (floorIndex === FLOOR_COUNT - 1) {
+        return this._generateFinalFloor(floorIndex, floorNumber, theme, bossId, bossConf);
+      }
       const shopY = rng.chance(0.5) ? 0 : 2;
 
       const rooms = [];
@@ -243,8 +252,8 @@
         number: floorNumber,
         theme,
         themeIndex: floorIndex % Ink.Art.THEMES.length,
-        name: '第' + floorNumber + '庭 · ' + theme.name,
-        sub: theme.sub || '',
+        name: '第' + floorNumber + '庭 · ' + FLOOR_NAMES[floorIndex].name + ' · ' + FLOOR_NAMES[floorIndex].sub,
+        sub: FLOOR_NAMES[floorIndex].sub,
         rooms,
         startRoomId: prep.id,
         prepRoomId: prep.id,
@@ -274,6 +283,54 @@
       }
 
       bossRoom.visited = false;
+      this.refresh(floor);
+      return floor;
+    }
+
+    /** 第五层：准备房 + 巨书战场，没有商店、侧庭与事件。 */
+    _generateFinalFloor(floorIndex, floorNumber, theme, bossId, bossConf) {
+      const rng = this.rng;
+      const rooms = [];
+      const prep = this._makeRoom(floorIndex, 0, 'prep', 0, 1, 0, rng);
+      prep.name = '最后一页之前';
+      prep.cleared = true;
+      prep.visited = true;
+      prep.prepared = false;
+      rooms.push(prep);
+      const boss = this._makeRoom(floorIndex, 1, 'boss', 1, 1, 7, rng);
+      boss.name = (bossConf && bossConf.roomName) || '目录之外';
+      rooms.push(boss);
+      this._connect(prep, boss);
+      const floor = {
+        index: floorIndex,
+        number: floorNumber,
+        theme,
+        themeIndex: floorIndex % Ink.Art.THEMES.length,
+        name: '第' + floorNumber + '庭 · 目录之外',
+        sub: '创世者',
+        rooms,
+        startRoomId: prep.id,
+        prepRoomId: prep.id,
+        bossRoomId: boss.id,
+        shopRoomId: null,
+        eventRoomId: null,
+        branchRoomIds: [],
+        spineIds: [boss.id],
+        bossId,
+        layoutId: 'finale',
+        layoutName: '巨书',
+        bossUnlocked: true,
+        passiveOffered2: false,
+        passiveOffered4: false,
+        passiveOffered6: false,
+        mapW: 2,
+        mapH: 3
+      };
+      for (const room of rooms) {
+        room.floorIndex = floorIndex;
+        room.spawnPlan = this._buildSpawnPlan(room, floorIndex, rng);
+        room.obstacles = this._buildObstacles(room, floorIndex, rng);
+      }
       this.refresh(floor);
       return floor;
     }
@@ -443,10 +500,11 @@
     // ── 障碍物 ──────────────────────────────────────────
     _obstacle(type, x, y, variant, r) {
       const destructible = type === 'crate';
+      const trap = type === 'spike';
       const hp = destructible ? 22 : 1;
       return {
         type, x, y, variant: variant || 0, r: r || 16,
-        destructible, hp, maxHp: hp, broken: false
+        destructible, hp, maxHp: hp, broken: false, trap
       };
     }
 
@@ -489,22 +547,26 @@
         grove: () => [
           this._obstacle('tree', 220, 200, 0, 20), this._obstacle('tree', 390, 170, 1, 20),
           this._obstacle('tree', 580, 180, 2, 20), this._obstacle('tree', 740, 220, 3, 20),
-          this._obstacle('tree', 250, 470, 4, 20), this._obstacle('tree', 700, 480, 0, 20)
+          this._obstacle('tree', 250, 470, 4, 20), this._obstacle('tree', 700, 480, 0, 20),
+          this._obstacle('spike', 480, 330, 0, 16)
         ],
         archive: () => [
           this._obstacle('crate', 200, 220, 0, 14), this._obstacle('crate', 200, 330, 1, 14),
           this._obstacle('crate', 760, 240, 2, 14), this._obstacle('crate', 760, 380, 3, 14),
-          this._obstacle('pillar', 420, 180, 0, 15), this._obstacle('pillar', 540, 490, 1, 15)
+          this._obstacle('pillar', 420, 180, 0, 15), this._obstacle('pillar', 540, 490, 1, 15),
+          this._obstacle('spike', 480, 330, 0, 16)
         ],
         stream: () => [
           this._obstacle('stone', 220, 330, 0, 15), this._obstacle('stone', 340, 280, 1, 14),
           this._obstacle('stone', 460, 340, 2, 13), this._obstacle('stone', 580, 280, 3, 14),
-          this._obstacle('stone', 700, 340, 4, 15), this._obstacle('pillar', 480, 480, 0, 16)
+          this._obstacle('stone', 700, 340, 4, 15), this._obstacle('pillar', 480, 480, 0, 16),
+          this._obstacle('spike', 480, 400, 0, 16)
         ],
         court: () => [
           this._obstacle('tree', 210, 210, 0, 20), this._obstacle('tree', 750, 210, 1, 20),
           this._obstacle('tree', 210, 470, 2, 20), this._obstacle('tree', 750, 470, 3, 20),
-          this._obstacle('pillar', 480, 200, 0, 15), this._obstacle('stone', 480, 480, 1, 14)
+          this._obstacle('pillar', 480, 200, 0, 15), this._obstacle('stone', 480, 480, 1, 14),
+          this._obstacle('spike', 480, 330, 0, 16)
         ]
       };
       if (layouts[room.layout]) return layouts[room.layout]();
@@ -536,6 +598,9 @@
         const roll = rng();
         const type = roll < 0.5 ? 'tree' : roll < 0.72 ? 'pillar' : roll < 0.9 ? 'crate' : 'stone';
         out.push(this._obstacle(type, x, y, rng.int(0, 4), type === 'tree' ? 19 : type === 'pillar' ? 15 : 13));
+      }
+      if (rng.chance(0.35)) {
+        out.push(this._obstacle('spike', 480, 330, 0, 16));
       }
       return out;
     }

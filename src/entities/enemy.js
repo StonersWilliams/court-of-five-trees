@@ -19,47 +19,47 @@
 
   const TYPES = {
     slime: {
-      id: 'slime', name: '墨团', hp: 34, speed: 76, damage: 9, radius: 15, xp: 5,
+      id: 'slime', name: '墨团', hp: 34, speed: 76, damage: 3, radius: 15, xp: 5,
       scale: 3, ai: 'slime', color: '#4fbf94', role: '近战·追击',
       desc: '从地砖缝里挤出的墨苔，会蹦跳着扑向活物。'
     },
     skull: {
-      id: 'skull', name: '飞颅', hp: 30, speed: 66, damage: 7, radius: 14, xp: 6,
+      id: 'skull', name: '飞颅', hp: 30, speed: 66, damage: 2, radius: 14, xp: 6,
       scale: 3, ai: 'shooter', color: '#65d7ff', role: '远程·漂浮',
       desc: '被墨渊吐出的旧日头骨，远远地投掷幽蓝魂火。'
     },
     gargoyle: {
-      id: 'gargoyle', name: '石像鬼', hp: 94, speed: 38, damage: 14, radius: 20, xp: 10,
+      id: 'gargoyle', name: '石像鬼', hp: 94, speed: 38, damage: 5, radius: 20, xp: 10,
       scale: 4, ai: 'charger', color: '#ff8a5c', role: '重装·冲撞',
       desc: '石壳里封着未熄的怒火，蓄力后会直线冲撞。'
     },
     spider: {
-      id: 'spider', name: '影蛛', hp: 27, speed: 112, damage: 7, radius: 13, xp: 5,
+      id: 'spider', name: '影蛛', hp: 27, speed: 112, damage: 2, radius: 13, xp: 5,
       scale: 3, ai: 'lunger', color: '#ff5c7a', role: '高速·突袭',
       desc: '沿着影子爬行的猎手，会突然缩短距离。'
     },
     tome: {
-      id: 'tome', name: '咒书', hp: 42, speed: 44, damage: 8, radius: 15, xp: 8,
+      id: 'tome', name: '咒书', hp: 42, speed: 44, damage: 3, radius: 15, xp: 8,
       scale: 3, ai: 'blinker', color: '#c084fc', role: '法术·闪现',
       desc: '无人翻动的书页自己吟唱，并撒出环形咒文。'
     },
     guard: {
-      id: 'guard', name: '枪俑', hp: 72, speed: 55, damage: 11, radius: 17, xp: 9,
+      id: 'guard', name: '枪俑', hp: 72, speed: 55, damage: 4, radius: 17, xp: 9,
       scale: 3, ai: 'lancer', color: '#ffb35c', role: '远程·穿刺',
       desc: '陪葬的持枪陶俑，会用一道笔直的枪气封锁走位。'
     },
     moth: {
-      id: 'moth', name: '纸蛾', hp: 38, speed: 82, damage: 8, radius: 14, xp: 7,
+      id: 'moth', name: '纸蛾', hp: 38, speed: 82, damage: 3, radius: 14, xp: 7,
       scale: 3, ai: 'fan', color: '#c7b6ff', role: '远程·扇射',
       desc: '从旧书页里抖落的纸蛾，会突然展开三枚鳞粉扇面。'
     },
     bell: {
-      id: 'bell', name: '铜铃傀', hp: 68, speed: 40, damage: 10, radius: 17, xp: 10,
+      id: 'bell', name: '铜铃傀', hp: 68, speed: 40, damage: 4, radius: 17, xp: 10,
       scale: 3, ai: 'pulse', color: '#d8c07a', role: '远程·震荡',
       desc: '无风自响的铜铃，每走一步都在地上压出一圈音浪。'
     },
     rat: {
-      id: 'rat', name: '书蠹', hp: 24, speed: 148, damage: 6, radius: 11, xp: 5,
+      id: 'rat', name: '书蠹', hp: 24, speed: 148, damage: 2, radius: 11, xp: 5,
       scale: 2.6, ai: 'lunger', color: '#a98b6a', role: '高速·骚扰',
       desc: '啃穿书脊的小蠹虫，会贴着地面突然弹射咬人。'
     }
@@ -88,7 +88,7 @@
       this.maxHp = def.hp * (1 + 0.60 * (this.floor - 1)) * (this.elite ? 1.9 : 1);
       this.hp = this.maxHp;
       this.speedBase = def.speed * (1 + 0.022 * (this.floor - 1)) * (this.elite ? 0.94 : 1);
-      this.damage = def.damage * (1 + 0.26 * (this.floor - 1)) * (this.elite ? 1.25 : 1);
+      this.damage = Math.min(15, def.damage * (1 + 0.20 * (this.floor - 1)) * (this.elite ? 1.2 : 1));
       this.xpValue = Math.round((def.xp + this.floor) * (this.elite ? 2.2 : 1));
       this.color = def.color;
       this.spawnTimer = opts.spawnTimer === undefined ? 0.5 : opts.spawnTimer;
@@ -111,6 +111,7 @@
       this.slowTimer = 0;
       this.slowMult = 1;
       this.markTimer = 0;
+      this.vulnTimer = 0;
       this.inkStacks = 0;
       this.trappedTimer = 0;
       this.tauntTimer = 0;
@@ -143,6 +144,7 @@
       this.hitFlash = Math.max(0, this.hitFlash - dt);
       this.slowTimer = Math.max(0, this.slowTimer - dt);
       this.markTimer = Math.max(0, this.markTimer - dt);
+      this.vulnTimer = Math.max(0, this.vulnTimer - dt);
       this.trappedTimer = Math.max(0, this.trappedTimer - dt);
       this.tauntTimer = Math.max(0, this.tauntTimer - dt);
       this.burnTimer = Math.max(0, this.burnTimer - dt);

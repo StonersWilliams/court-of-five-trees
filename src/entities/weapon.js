@@ -223,14 +223,17 @@
       color: '#c8a46b', shape: 'hammer', icon: 'bomb', cooldown: 1.05, chargeTime: 1.1,
       damage: 46, range: 160, shots: 1, spread: 0, speed: 680, radius: 10, life: 0.6,
       knockback: 120, melee: true, arc: 1.9, clearShots: true, charged: true,
-      desc: '黄铜镇纸改成的重锤。按住蓄力，松手砸出高额扇形伤害并扫落弹幕。'
+      chargeAuto: false, chargeSlow: 0.42,
+      desc: '黄铜镇纸改成的重锤。按住蓄力，松手砸出高额扇形伤害并扫落弹幕；蓄力时移速降低。'
     },
     siege_bow: {
       id: 'siege_bow', name: '破城弓', rarity: 'epic', price: 46,
       color: '#d6b06a', shape: 'bow', icon: 'bow', cooldown: 0.9, chargeTime: 1.1,
       damage: 58, range: 640, shots: 1, spread: 0, speed: 920, radius: 7, life: 1.3,
       pierce: 6, knockback: 60, trail: true, charged: true,
-      desc: '守城用的旧弓。按住蓄力，满蓄一箭穿透整条走廊。'
+      chargeAuto: false, chargeChain: true, chargeSlow: 0.5,
+      chargePerfect: [0.55, 0.72], chargePerfectMult: 2.6,
+      desc: '守城旧弓。按住蓄力，松手发射；在金色完美区间释放可穿透整条走廊并造成 2.6 倍伤害，蓄力时移速降低。'
     }
   };
 
@@ -307,6 +310,38 @@
       life: 1.5, homing: 1.8, trail: true,
       bossOnly: true, bossId: 'edo', special: 'bossEdo',
       desc: '十二张嘴同时吹气。六片扇羽各自追人。'
+    },
+    buzz: {
+      id: 'buzz', name: '格式红批', rarity: 'relic', price: 0,
+      color: '#9ecf8a', shape: 'scroll', icon: 'scroll', cooldown: 0.46,
+      damage: 34, range: 640, shots: 3, spread: 0.18, speed: 580, radius: 6,
+      life: 1.7, slow: [0.65, 1.8], pierce: 2,
+      bossOnly: true, bossId: 'buzz', special: 'bossBuzz',
+      desc: '外庭客座的红批注。命中的敌人会被“格式错误”拖慢。'
+    },
+    liu: {
+      id: 'liu', name: '铁砧诗锤', rarity: 'relic', price: 0,
+      color: '#ff9a5c', shape: 'hammer', icon: 'bomb', cooldown: 0.6,
+      damage: 96, range: 240, shots: 1, spread: 0, speed: 680, radius: 11,
+      life: 1.2, knockback: 170, explode: 100, explodeMult: 0.7,
+      bossOnly: true, bossId: 'liu', special: 'bossLiu',
+      desc: '柳铁柱的铁锤。每一击都带着铁砧的回声。'
+    },
+    yuenu: {
+      id: 'yuenu', name: '铜鼓玉璧', rarity: 'relic', price: 0,
+      color: '#6be0d2', shape: 'orb', icon: 'orb', cooldown: 0.34,
+      damage: 32, range: 620, shots: 4, spread: 0.42, speed: 620, radius: 5,
+      life: 1.7, slow: [0.55, 1.6], homing: 2.0,
+      bossOnly: true, bossId: 'yuenu', special: 'bossYuenu',
+      desc: '百越玉女的铜鼓与残璧。鼓声追人，玉光减速。'
+    },
+    creator: {
+      id: 'creator', name: '创世朱笔', rarity: 'relic', price: 0,
+      color: '#e8c170', shape: 'brush', icon: 'brush', cooldown: 0.24,
+      damage: 66, range: 700, shots: 3, spread: 0.16, speed: 760, radius: 7,
+      life: 1.8, pierce: 4, ink: true, explode: 70, explodeMult: 0.5,
+      bossOnly: true, bossId: 'creator', special: 'bossCreator',
+      desc: '创世者的朱笔。它写下的字，会自己改成追你的形状。'
     }
   };
 

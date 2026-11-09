@@ -61,7 +61,7 @@
         this.healTick -= dt;
         if (this.healTick <= 0) {
           this.healTick = 0.55;
-          p.heal(3);
+          p.heal(1);
           Ink.FX.text(g, '+3', p.x + U.rand(-8, 8), p.y - 36, '#8ef0c8', 11, 0.55);
         }
       }
@@ -118,7 +118,7 @@
   Ink.registerCharacter({
     id: 'autumn', name: '秋雨', title: '听雨人', role: '区域 · 续航',
     color: '#7fb8c9', accent: '#b7d9ff',
-    hp: 88, armor: 6, speed: 205, damage: 8, atkInterval: 0.4, range: 340, cooldown: 10.0,
+    hp: 15, armor: 6, speed: 205, damage: 8, atkInterval: 0.4, range: 340, cooldown: 10.0,
     skillName: '秋霖', skillDesc: '在指定区域降下雨阵，持续 5 秒，对敌人造成伤害和减速；站在雨中减伤 45% 并持续回血。',
     passiveName: '湿意', passiveDesc: '生命低于 40% 时，受到的伤害降低 12%。',
     quote: '雨落下来，路就软了。',

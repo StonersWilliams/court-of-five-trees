@@ -28,6 +28,18 @@
     sanrui: 'three_seal'
   };
 
+  // 主动技能的能量消耗：辅助/召唤型略高，爆发型略低。
+  const SKILL_ENERGY = {
+    qiyun: 8, xiaoying: 7, xinyue: 10, ziyu: 9,
+    smartdog: 10, mouse: 8, autumn: 11, sanrui: 12
+  };
+
+  // 手刀基础伤害：刺客/近战角色更痛，法师型较轻。
+  const HAND_DAMAGE = {
+    qiyun: 5, xiaoying: 8, xinyue: 5, ziyu: 6,
+    smartdog: 6, mouse: 7, autumn: 5, sanrui: 6
+  };
+
   class Player {
     constructor(game, charId) {
       this.game = game;
@@ -65,6 +77,23 @@
       this.maxArmor = this.baseArmor;
       this.armor = this.maxArmor;
       this.armorRegenTimer = 0;
+      // 能量：武器与主动技能共用；不自然恢复，靠能量球/击杀/事件补充。
+      this.maxEnergy = 60;
+      this.energy = this.maxEnergy;
+      this.energyCost = 0;
+      this.lowEnergyCd = 0;
+      // 手刀：无消耗的备用近战，按输入触发；不依赖近战武器。
+      this.handCd = 0;
+      this.handDamage = HAND_DAMAGE[charId] || 6;
+      this.handRange = 58;
+      this.preferMelee = false;
+      this.skillEnergyCost = SKILL_ENERGY[charId] || 8;
+      this._prevMouseDown = false;
+      this._handHeld = false;
+      this.chargeTimer = 0;
+      this.chargePower = 1;
+      this.chargeChainTimer = 0;
+      this.speedBoostTimer = 0;
       this.speed = this.baseSpeed;
       this.damage = this.baseDamage;
       this.atkInterval = this.baseAtkInterval;
@@ -170,7 +199,7 @@
       const oldMax = this.maxHp;
       const oldArmorMax = this.maxArmor;
 
-      this.maxHp = Math.round(this.baseMaxHp + (this.growthHp || 0));
+      this.maxHp = Math.min(20, Math.round(this.baseMaxHp + (this.growthHp || 0)));
       this.maxArmor = Math.round(this.baseArmor);
       this.speed = this.baseSpeed * (1 + (this.growthSpeed || 0));
       this.damage = this.baseDamage * (1 + (this.growthDamage || 0));
@@ -191,13 +220,13 @@
 
     /** 随机事件专用：小幅提高基础属性（生命/伤害/移速）。 */
     applyStatGrowth() {
-      this.growthHp += 12;
+      this.growthHp += 1;
       this.growthDamage += 0.05;
       this.growthSpeed += 0.015;
       this.recomputeStats(true);
-      this.heal(12);
+      this.heal(1);
       if (this.game && this.game.ui) {
-        this.game.ui.showToast('研习旧帖 · 生命 +12 / 伤害 +5% / 移速 +1.5%', '#e8c170', 2.2);
+        this.game.ui.showToast('研习旧帖 · 生命上限 +1 / 伤害 +5% / 移速 +1.5%', '#e8c170', 2.2);
       }
     }
 
@@ -301,16 +330,100 @@
       return this.weaponCdMax;
     }
 
+    /** 每把武器单次开火的能量消耗；近战与空手为 0。 */
+    weaponEnergyCost(def = this.weapon) {
+      if (!def || def.melee || def.id === 'fists') return 0;
+      if (def.energyCost !== undefined) return def.energyCost;
+      return Math.max(1, Math.min(8, Math.round((def.damage || 8) / 9)));
+    }
+
+    addEnergy(amount) {
+      if (!amount) return;
+      const before = this.energy;
+      this.energy = U.clamp(this.energy + amount, 0, this.maxEnergy);
+      const gain = Math.round(this.energy - before);
+      if (gain > 0) {
+        Ink.FX.text(this.game, '+' + gain + ' 能量', this.x, this.y - 44, '#8fd6ff', 11, 0.7);
+      }
+    }
+
+    _showEnergyToast(text) {
+      if (this.lowEnergyCd > 0) return;
+      this.lowEnergyCd = 1.2;
+      if (this.game.ui) this.game.ui.showToast(text, '#8fd6ff', 1.0);
+    }
+
+    _chargeDuration(def) {
+      const chain = (this.chargeChainTimer || 0) > 0 ? 0.7 : 1;
+      return (def.chargeTime || 0.9) * chain;
+    }
+
+    /**
+     * 手刀：不消耗能量、不进入武器冷却的备用近战。
+     * 输入保持时以 0.12s 的输入节流触发，而不是传统技能冷却。
+     */
+    handKnife() {
+      // 手刀没有内置冷却；同一次按住只挥一次，攻击频率由玩家点击/点按频率决定。
+      if (this.dead || this._handHeld) return false;
+      this._handHeld = true;
+      const range = this.handRange || 58;
+      const arc = 1.65;
+      const dmg = this.handDamage || 6;
+      let hits = 0;
+      for (const e of this.game.enemies) {
+        if (e.dead || e.spawnTimer > 0) continue;
+        if (U.dist(this.x, this.y, e.x, e.y) > range + e.radius) continue;
+        if (Math.abs(U.angleDiff(U.angleTo(this, e), this.aimAngle)) > arc / 2) continue;
+        this.game.damageEnemy(e, dmg, {
+          source: 'hand', sourceKey: 'hand_knife', color: '#ffe0b0', knockback: 55
+        });
+        hits++;
+      }
+      Ink.FX.slash(this.game, {
+        x: this.x + Math.cos(this.aimAngle) * 12,
+        y: this.y + Math.sin(this.aimAngle) * 12,
+        angle: this.aimAngle, range: range + 6, arc, color: '#ffe0b0', life: 0.16, width: 4
+      });
+      this.game.audio.sfx('slash');
+      this.weaponFlash = 0.06;
+      if (hits) this.game.addShake(1.5, 0.08);
+      return true;
+    }
+
+    /** 手刀优先级：空手、能量不足且贴脸，或玩家手动切到近战优先。 */
+    shouldHandKnife(def = this.weapon) {
+      if (this.dead) return false;
+      if (!def || def.id === 'fists') return true;
+      if (def.melee) return false;
+      if (this.wantFire() === false) return false;
+      const target = this.nearestEnemy(this.handRange + 22);
+      if (!target) return false;
+      if (this.preferMelee) return true;
+      return this.energy < this.weaponEnergyCost(def) && U.dist(this.x, this.y, target.x, target.y) <= this.handRange + target.radius;
+    }
+
     updateWeapon(dt) {
+      this.handCd = 0;
+      this.lowEnergyCd = Math.max(0, this.lowEnergyCd - dt);
+      this.chargeChainTimer = Math.max(0, (this.chargeChainTimer || 0) - dt);
       this.weaponCd = Math.max(0, this.weaponCd - dt);
       if (this.dead) return;
 
       const def = this.weapon;
-      if (def && def.charged && this.weaponCd <= 0) {
-        // 蓄力武器：按住时蓄力，满蓄自动释放；松开时若已蓄到 12% 也会甩出半蓄攻击。
-        if (this.wantFire()) {
-          this.chargeTimer = Math.min(1, this.chargeTimer + dt / (def.chargeTime || 0.9));
-          if (this.chargeTimer >= 1) this.fireWeapon();
+      const firing = this.wantFire();
+      if (!firing) this._handHeld = false;
+      // 近战优先 / 空手 / 能量不足贴脸：手刀完全独立于武器冷却。
+      if (firing && this.shouldHandKnife(def)) {
+        this.handKnife();
+        return;
+      }
+      if (!def) return;
+      if (def.charged && this.weaponCd <= 0) {
+        // 蓄力武器：按住蓄力、满蓄自动释放；松开时 12% 以上甩出半蓄攻击。
+        if (firing) {
+          this.chargeTimer = Math.min(1, this.chargeTimer + dt / this._chargeDuration(def));
+          // 自动释放可被每把武器关闭；完美区间武器仍可按住等完美窗口。
+          if (this.chargeTimer >= 1 && def.chargeAuto !== false) this.fireWeapon();
         } else if (this.chargeTimer > 0.12) {
           this.fireWeapon();
         }
@@ -318,17 +431,35 @@
       }
 
       if (this.weaponCd > 0) return;
-      if (!this.wantFire()) return;
+      if (!firing) return;
       this.fireWeapon();
     }
 
     fireWeapon() {
       const def = this.weapon;
       if (!def) return false;
-      // 蓄力强度只在本发内生效；普通武器固定为 1。
-      this.chargePower = def.charged
-        ? 0.9 + 1.25 * Math.max(0.12, this.chargeTimer)
-        : 1;
+      const cost = this.weaponEnergyCost(def);
+      if (cost > 0 && this.energy < cost) {
+        // 能量不足时优先落到手刀，而不是罚站空按。
+        if (this.shouldHandKnife(def)) {
+          this.handKnife();
+          return false;
+        }
+        this._showEnergyToast('能量不足 · 近身可用手刀');
+        this.weaponCd = 0.25;
+        return false;
+      }
+      // 蓄力强度只在本发内生效；完美区间可额外放大。
+      let chargePower = def.charged ? 0.9 + 1.25 * Math.max(0.12, this.chargeTimer) : 1;
+      if (def.charged && def.chargePerfect) {
+        const [lo, hi] = def.chargePerfect;
+        if (this.chargeTimer >= lo && this.chargeTimer <= hi) {
+          chargePower = def.chargePerfectMult || 2.4;
+          Ink.FX.text(this.game, '完美释放', this.x, this.y - 54, '#ffe08a', 15, 1.0);
+        }
+      }
+      this.chargePower = chargePower;
+      if (cost > 0) this.energy = Math.max(0, this.energy - cost);
       // 近战武器不走弹道：挥出弧形，命中敌人并清除范围内敌方弹幕。
       if (def.melee) {
         this.swingWeapon(def);
@@ -338,6 +469,7 @@
         this.weaponRecoil = 1;
         this.weaponFlash = 0.085;
         this.chargeTimer = 0;
+        if (def.chargeChain) this.chargeChainTimer = 2.2;
         return true;
       }
       const extra = this.extraProjectiles || 0;
@@ -374,6 +506,7 @@
       this.weaponRecoil = 1;
       this.weaponFlash = 0.085;
       this.chargeTimer = 0;
+      if (def.chargeChain) this.chargeChainTimer = 2.2;
       if ((def.damage || 0) * this.chargePower >= 40) this.game.addShake(3, 0.1);
       this.game.audio.sfx(def.sfx || 'shoot');
       return true;
@@ -927,7 +1060,7 @@
         this.xp -= this.xpNext;
         this.level++;
         this.xpNext = Math.round(10 + (this.level - 1) * 8 + Math.pow(this.level, 1.25) * 2);
-        this.hp = Math.min(this.maxHp, this.hp + 8);
+        this.hp = Math.min(this.maxHp, this.hp + 1);
         this.game.onPlayerLevelUp(this.level);
       }
     }
@@ -940,6 +1073,7 @@
       this.invuln = Math.max(0, this.invuln - dt);
       this.atkCd = Math.max(0, this.atkCd - dt);
       this.skillCd = Math.max(0, this.skillCd - dt);
+      this.speedBoostTimer = Math.max(0, this.speedBoostTimer - dt);
       this.slowTimer = Math.max(0, this.slowTimer - dt);
       this.weaponRecoil = Math.max(0, this.weaponRecoil - dt * 9);
       this.weaponFlash = Math.max(0, this.weaponFlash - dt);
@@ -947,11 +1081,11 @@
       this.swiftTimer = Math.max(0, this.swiftTimer - dt);
       this.updateWeaponHooks(dt);
 
-      // 护甲回复：脱战 4.5 秒后每秒回复 1.5 点
+      // 护盾：脱战 4.5 秒后每秒回复 1 点，直到满值。
       if (this.armorRegenTimer > 0) {
         this.armorRegenTimer -= dt;
       } else if (this.armor < this.maxArmor) {
-        this.armor = Math.min(this.maxArmor, this.armor + 1.5 * dt);
+        this.armor = Math.min(this.maxArmor, this.armor + 1.0 * dt);
       }
 
       // 主动技能输入（桌面空格 / 右键；触屏由 game 设置 skillRequest）
@@ -968,9 +1102,12 @@
 
       // 移动
       const mv = this.game.getMoveVector();
-      const sp = this.speed
+      const charBonus = this.char && this.char.speedBonus ? this.char.speedBonus() : 0;
+      const sp = this.speed * (1 + charBonus)
+        * (this.speedBoostTimer > 0 ? 1.25 : 1)
         * (this.swiftTimer > 0 ? Math.min(1.55, 1.25 + 0.06 * Math.max(0, this.swiftStacks - 1)) : 1)
         * (this.maskTimer > 0 ? 1.15 : 1)
+        * (this.chargeTimer > 0 ? (this.weapon.chargeSlow || 0.58) : 1)
         * (this.slowTimer > 0 && this.maskTimer <= 0 ? this.slowMult : 1);
       if (mv.x !== 0 || mv.y !== 0) {
         this.x += mv.x * sp * dt;
@@ -1147,8 +1284,13 @@
         if (this.skillCd > 0) this.game.audio.sfx('uiBack');
         return false;
       }
+      if (this.energy < this.skillEnergyCost) {
+        this._showEnergyToast('能量不足 · 技能无法发动');
+        return false;
+      }
       const ok = this.char.useSkill();
       if (ok) {
+        this.energy = Math.max(0, this.energy - this.skillEnergyCost);
         const accent = this.def.accent || PAL.gold;
         this.skillCd = this.skillCdMax;
         this.skillFlash = 0.55;
@@ -1350,6 +1492,23 @@
         ctx.beginPath();
         ctx.arc(this.x, this.y - 2, 28, -Math.PI / 2, -Math.PI / 2 + U.TAU * k);
         ctx.stroke();
+        if (this.weapon.chargePerfect) {
+          const [lo, hi] = this.weapon.chargePerfect;
+          ctx.strokeStyle = 'rgba(255,224,138,.75)';
+          ctx.lineWidth = 7;
+          ctx.beginPath();
+          ctx.arc(this.x, this.y - 2, 28,
+            -Math.PI / 2 + U.TAU * lo, -Math.PI / 2 + U.TAU * hi);
+          ctx.stroke();
+          if (k >= lo && k <= hi) {
+            ctx.globalAlpha = 0.6 + Math.sin(this.time * 18) * 0.2;
+            ctx.strokeStyle = '#fff6dc';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y - 2, 34, 0, U.TAU);
+            ctx.stroke();
+          }
+        }
         if (k >= 1) {
           ctx.globalAlpha = 0.45 + Math.sin(this.time * 16) * 0.2;
           ctx.strokeStyle = '#fff6dc';

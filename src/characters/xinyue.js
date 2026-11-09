@@ -20,8 +20,11 @@
       this.marked = null;
       this.firstReductionUsed = false;
       this.domainTimer = 0;
-      this.domainMax = 3.4;
+      this.domainMax = 2.5;
       this.domainUsed = false;
+      this.domainCharges = 3;
+      this.domainRadius = 84;
+      this.domainReflected = 0;
     }
 
     onSpawn() {
@@ -53,11 +56,13 @@
 
       if (this.domainTimer > 0) {
         this.domainTimer -= dt;
-        if (this.domainTimer <= 0 && !this.domainUsed) {
+        if (this.domainTimer <= 0) {
           this.domainTimer = 0;
-          this.player.addArmor(8);
-          Ink.FX.text(this.game, '心域·余温 +8 护甲', this.player.x, this.player.y - 44, '#ffc2d4', 12, 0.9);
-          this.game.audio.sfx('armor');
+          if (this.domainReflected === 0) {
+            this.player.addArmor(8);
+            Ink.FX.text(this.game, '心域·余温 +8 护盾', this.player.x, this.player.y - 44, '#ffc2d4', 12, 0.9);
+            this.game.audio.sfx('armor');
+          }
         }
       }
     }
@@ -85,9 +90,11 @@
       if (this.domainTimer > 0) return false;
       this.domainTimer = this.domainMax;
       this.domainUsed = false;
+      this.domainCharges = 3;
+      this.domainReflected = 0;
       const p = this.player;
       Ink.FX.ring(this.game, {
-        x: p.x, y: p.y, r0: 8, r1: 74, life: 0.5, color: '#ff9bb0', width: 3
+        x: p.x, y: p.y, r0: 8, r1: 96, life: 0.5, color: '#ff9bb0', width: 3
       });
       Ink.FX.burst(this.game, p.x, p.y, ['#ff9bb0', '#fff6e7'], 16, 90, {
         size: 3, glow: true, lifeMult: 1.2
@@ -110,11 +117,24 @@
       return amount;
     }
 
-    tryDeflect(source) {
-      if (this.domainTimer > 0 && !this.domainUsed) {
+    speedBonus() {
+      return this.domainTimer > 0 ? 0.10 : 0;
+    }
+
+    tryDeflect(source, amount) {
+      if (this.domainTimer > 0 && this.domainCharges > 0) {
+        this.domainCharges--;
         this.domainUsed = true;
-        this.domainTimer = 0;
+        this.domainReflected++;
         const p = this.player;
+        // 反弹来源：优先直接攻击者，弹幕则回溯发射者。
+        let attacker = source;
+        if (attacker && attacker.source && attacker.source !== attacker) attacker = attacker.source;
+        if (attacker && attacker.takeDamage && !attacker.isPlayer && !attacker.dead) {
+          attacker.takeDamage(Math.max(1, Math.round(amount * 1.5)), { source: 'xinyue', color: '#ff9bb0' });
+          attacker.vulnTimer = 3;
+          attacker.vulnMult = 1.15;
+        }
         Ink.FX.ring(this.game, {
           x: p.x, y: p.y, r0: 70, r1: 12, life: 0.45, color: '#ffd0dd', width: 4
         });
@@ -124,6 +144,7 @@
         Ink.FX.text(this.game, '心域·偏转', p.x, p.y - 46, '#ffe6f0', 15, 1.0);
         this.game.audio.sfx('armor');
         this.game.addShake(3, 0.16);
+        if (this.domainCharges <= 0) this.domainTimer = 0;
         return true;
       }
       return false;
@@ -143,7 +164,7 @@
       // 心域
       if (this.domainTimer > 0) {
         const t = this.domainTimer / this.domainMax;
-        const r = 58 + Math.sin(game.time * 4) * 4;
+        const r = this.domainRadius + Math.sin(game.time * 4) * 4;
         ctx.save();
         ctx.globalAlpha = 0.3 + t * 0.25;
         ctx.strokeStyle = '#ff9bb0';
@@ -206,7 +227,7 @@
     role: '辅助 · 防御',
     color: PAL.xinyue,
     accent: '#ff9bb0',
-    hp: 100,
+    hp: 20,
     armor: 8,
     speed: 195,
     damage: 7,

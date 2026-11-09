@@ -89,7 +89,7 @@
       name: '旧帖研习室',
       text: '桌上摊着前辈留下的批注本，页边写着“先练筋骨，再谈文章”。',
       choices: [
-        { label: '研习旧帖', desc: '基础成长：生命 +12、伤害 +5%、移速 +1.5%。', apply(g) { g.player.applyStatGrowth(); } },
+        { label: '研习旧帖', desc: '基础成长：生命上限 +1、伤害 +5%、移速 +1.5%。', apply(g) { g.player.applyStatGrowth(); } },
         { label: '临摹一页', desc: '获得一次机制被动。', apply(g) { g.grantRandomPassive(); } },
         { label: '把批注卖掉', desc: '获得 20 金币，回复 15% 生命。', apply(g) { g.player.addCoins(20); g.player.heal(g.player.maxHp * 0.15); } }
       ]
@@ -111,7 +111,7 @@
       this.vy = U.rand(-150, -40);
       this.life = 32;
       this.maxLife = 32;
-      this.radius = kind === 'heart' ? 8 : kind === 'weapon' ? 14 : kind === 'coin' ? 7 : 6;
+      this.radius = kind === 'heart' ? 8 : kind === 'weapon' ? 14 : kind === 'coin' ? 7 : kind === 'energy' ? 7 : 6;
       this.armTimer = kind === 'weapon' ? 0.9 : 0;
       this.noMagnet = false;
       this.dead = false;
@@ -153,6 +153,8 @@
         } else if (this.kind === 'coin') {
           p.addCoins(this.value);
           FX.text(game, '+' + this.value + ' 金币', p.x, p.y - 36, '#ffd36b', 12, 0.7);
+        } else if (this.kind === 'energy') {
+          p.addEnergy(this.value);
         } else if (this.kind === 'weapon') {
           // 换枪：旧武器自动落在脚边，玩家可以反悔捡回。
           p.equipWeapon(this.weaponId, { dropCurrent: true });
@@ -200,6 +202,20 @@
         ctx.fillRect(this.x - 4, this.y - 4 + bob, 8, 8);
         ctx.fillStyle = '#fff0b0';
         ctx.fillRect(this.x - 2, this.y - 2 + bob, 4, 2);
+        ctx.restore();
+      } else if (this.kind === 'energy') {
+        const bob = Math.sin(this.time * 5) * 2;
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = 'rgba(143,214,255,.18)';
+        ctx.beginPath();
+        ctx.arc(this.x, this.y + bob, 11 + Math.sin(this.time * 5) * 2, 0, U.TAU);
+        ctx.fill();
+        ctx.fillStyle = '#8fd6ff';
+        ctx.fillRect(this.x - 3, this.y - 5 + bob, 6, 10);
+        ctx.fillRect(this.x - 5, this.y - 2 + bob, 10, 4);
+        ctx.fillStyle = '#dff6ff';
+        ctx.fillRect(this.x - 1, this.y - 3 + bob, 2, 6);
         ctx.restore();
       } else if (this.kind === 'weapon') {
         const bob = Math.sin(this.time * 3) * 3;
@@ -851,11 +867,29 @@
       this.obstacles = (room && room.obstacles) ? room.obstacles : [];
     }
 
+    /** 地刺：独立冷却，触发一次扣 1 点并短暂减速。 */
+    updateTraps(dt) {
+      const p = this.player;
+      if (!p || p.dead || !this.obstacles.length) return;
+      for (const o of this.obstacles) {
+        if (!o.trap) continue;
+        o.trapCd = Math.max(0, (o.trapCd || 0) - dt);
+        if (o.trapCd > 0) continue;
+        if (U.dist(p.x, p.y, o.x, o.y) > o.r + p.radius * 0.7) continue;
+        o.trapCd = 1.1;
+        p.takeDamage(1, o);
+        p.applySlow(0.55, 0.7);
+        FX.burst(this, o.x, o.y, '#c7b6ab', 8, 80, { size: 2 });
+        this.audio.sfx('hit');
+        this.addShake(2.2, 0.12);
+      }
+    }
+
     /** 圆形实体与树/柱/箱的推开，避免穿模。 */
     resolveObstacles(entity) {
       if (!entity || entity.dead || !this.obstacles.length) return;
       for (const o of this.obstacles) {
-        if (o.broken) continue;
+        if (o.broken || o.trap) continue;
         const dx = entity.x - o.x;
         const dy = entity.y - o.y;
         const min = (entity.radius || 12) + o.r;
@@ -896,7 +930,7 @@
     projectileHitObstacle(pr) {
       if (!pr || !this.obstacles.length) return false;
       for (const o of this.obstacles) {
-        if (o.broken) continue;
+        if (o.broken || o.trap) continue;
         if (U.dist(pr.x, pr.y, o.x, o.y) > o.r + pr.radius) continue;
 
         if (o.destructible && pr.owner === 'player') {
@@ -1058,6 +1092,7 @@
       if (!p) return;
       p.update(dt);
       this.resolveObstacles(p);
+      this.updateTraps(dt);
       if (this.state !== 'playing') return;
 
       if (this.dogs && this.dogs.length) {
@@ -1295,7 +1330,7 @@
       if (!p || p.dead || p.invuln > 0) return;
 
       // 心阅：心域完全偏转一次
-      if (p.char.tryDeflect(source)) return;
+      if (p.char.tryDeflect(source, amount)) return;
 
       // 心阅：被动减伤
       amount = p.char.beforeDamage(amount, source);
@@ -1334,14 +1369,17 @@
           });
         }
       }
+      if (this.player) this.player.addEnergy(opts.boss ? 24 : 2);
       if (opts.boss) {
         this.dropCoin(enemy.x, enemy.y, 24);
-      } else if (Math.random() < 0.72) {
-        this.dropCoin(enemy.x, enemy.y, U.randInt(1, 2));
+        for (let i = 0; i < 3; i++) this.dropEnergy(enemy.x + U.rand(-24, 24), enemy.y + U.rand(-20, 20), 8);
+      } else {
+        if (Math.random() < 0.72) this.dropCoin(enemy.x, enemy.y, U.randInt(1, 2));
+        if (Math.random() < 0.18) this.dropEnergy(enemy.x, enemy.y, 8);
       }
       if (enemy.elite || opts.boss) {
         if (Math.random() < (opts.boss ? 1 : 0.35)) {
-          this.dropHeart(enemy.x, enemy.y, opts.boss ? 14 : 8);
+          this.dropHeart(enemy.x, enemy.y, opts.boss ? 6 : 3);
         }
       }
     }
@@ -1375,6 +1413,7 @@
       this.runStats.stages++;
       this.runStats.trueNames = Math.min(Ink.FLOOR_COUNT, this.runStats.trueNames + 1);
       this.runStats.seals = Math.min(Ink.FLOOR_COUNT, this.runStats.seals + 1);
+      this.runStats.fragments = Math.min(5, (this.runStats.fragments || 0) + 1);
       // 庭主额外给一次被动；若这一关正好也是“每五关”，会连续给两次。
       this.passivePending++;
       this.ui.showClearBanner('庭主已破', '遗物已落 · 机缘额外 +1', PAL.gold);
@@ -1439,6 +1478,11 @@
         if (v <= 0) continue;
         this.pickups.push(new Pickup(this, x + U.rand(-12, 12), y + U.rand(-10, 10), v, 'coin'));
       }
+    }
+
+    /** 能量球：每颗回复 8 点，不受磁吸加成影响。 */
+    dropEnergy(x, y, value = 8) {
+      this.pickups.push(new Pickup(this, x + U.rand(-10, 10), y + U.rand(-8, 8), value, 'energy'));
     }
 
     dropWeaponPickup(id, x, y, scatter = true) {
@@ -1514,7 +1558,7 @@
       // 实体按 y 排序，制造前后遮挡
       const ents = [];
       for (const o of this.obstacles) {
-        if (o.broken) continue;
+        if (o.broken || o.trap) continue;
         ents.push({
           y: o.y, radius: o.r,
           draw: (c) => Ink.Art.drawObstacle(c, o, this.time, theme)
@@ -1691,7 +1735,7 @@
       if (id === 'seat' && s.fragments >= 5 && s.trueNames >= Ink.FLOOR_COUNT && s.seals >= 3) {
         result = { id: 'tenth', name: '第十席', text: '九把椅子都空着。你坐下时，庭中多了一棵不属于五棵树的树。' };
       } else if (id === 'fire') {
-        result = { id: 'burn', name: '焚稿', text: '火从最后一页烧起。没有人退稿，也没有人清稿——只有灰落在九层庭阶上。' };
+        result = { id: 'burn', name: '焚稿', text: '火从最后一页烧起。没有人退稿，也没有人清稿——只有灰落在五层庭阶上。' };
       } else if (id === 'brush') {
         result = { id: 'proof', name: '校勘', text: '朱笔落下，错字被一一改正。你走出庭门时，身后传来九声很轻的“可”。' };
       } else if (id === 'white' && s.fragments >= 3) {

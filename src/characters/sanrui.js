@@ -115,7 +115,7 @@
           if (b.name === '禄') armor += 6;
           if (b.name === '寿') coins += 20;
         }
-        if (hp) p.heal(hp);
+        if (hp) p.heal(Math.min(4, hp));
         if (armor) p.addArmor(armor);
         if (coins) p.addCoins(coins);
         if (hp || armor || coins) {
@@ -177,7 +177,7 @@
   Ink.registerCharacter({
     id: 'sanrui', name: '三瑞', title: '瑞兽之主', role: '召唤 · 协同',
     color: '#c9a45c', accent: '#ffe1a6',
-    hp: 90, armor: 4, speed: 200, damage: 7, atkInterval: 0.42, range: 420, cooldown: 11.0,
+    hp: 16, armor: 4, speed: 200, damage: 7, atkInterval: 0.42, range: 420, cooldown: 11.0,
     skillName: '三瑞', skillDesc: '召唤福、禄、寿三头瑞兽撕咬敌人，造成伤害与短暂沉默。瑞兽有独立血量；技能结束时存活的瑞兽分别献上生命、护甲、金币。',
     passiveName: '分瑞', passiveDesc: '技能期间，玩家受到伤害的 25% 由仍存活的瑞兽分摊。',
     quote: '福、禄、寿，都饿着。',

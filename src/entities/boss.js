@@ -71,6 +71,32 @@
       baseType: 'spider', ai: 'edo', hp: 800, speed: 68, damage: 19,
       radius: 42, color: '#c084fc', xp: 170, interval: 1.8,
       roomName: '十二口庭', quote: '别数我的嘴，数你的心跳。'
+    },
+    // ── 外庭三客 ──────────────────────────────────────────
+    buzz: {
+      id: 'buzz', name: '巴斯光年', title: '外庭客座 · 规定',
+      baseType: 'guard', ai: 'buzz', hp: 840, speed: 46, damage: 19,
+      radius: 44, color: '#6f8f6a', xp: 190, interval: 1.9, guest: true,
+      roomName: '格式审查室', quote: '请注意，这是规定。'
+    },
+    liu: {
+      id: 'liu', name: '柳铁柱', title: '外庭客座 · 锻诗',
+      baseType: 'gargoyle', ai: 'liu', hp: 860, speed: 52, damage: 20,
+      radius: 45, color: '#d97a4a', xp: 195, interval: 1.85, guest: true,
+      roomName: '铁砧诗房', quote: '好诗要趁热打。'
+    },
+    yuenu: {
+      id: 'yuenu', name: '百越玉女', title: '外庭客座 · 巫舞',
+      baseType: 'tome', ai: 'yuenu', hp: 820, speed: 62, damage: 18,
+      radius: 42, color: '#3fa7a0', xp: 200, interval: 1.8, guest: true,
+      roomName: '瘴雾铜鼓庭', quote: '鼓声一响，山鬼让路。'
+    },
+    creator: {
+      id: 'creator', name: '创世者', title: '目录之外的执笔人',
+      baseType: 'tome', ai: 'creator', hp: 1600, speed: 36, damage: 20,
+      radius: 52, color: '#d6b06a', xp: 300, interval: 1.7,
+      roomName: '目录之外', quote: '你只是我还没删掉的一行。',
+      thresholds: [0.66, 0.33], finalBoss: true, scale: 3.6
     }
   };
 
@@ -88,11 +114,12 @@
       this.boss = true;
       this.elite = false;
       this.radius = conf.radius;
-      this.scale = 4;
+      this.scale = conf.scale || 4;
       this.maxHp = Math.round(conf.hp * (1.18 + 0.62 * (this.floor - 1)));
       this.hp = this.maxHp;
       this.speedBase = conf.speed * (1 + 0.06 * (this.floor - 1));
-      this.damage = Math.round(conf.damage * (1.10 + 0.32 * (this.floor - 1)));
+      // 20 点生命模型下，庭主单次命中控制在 1–15 点。
+      this.damage = Math.min(15, Math.round(conf.damage * 0.55 * (1.05 + 0.18 * (this.floor - 1))));
       this.xpValue = conf.xp + this.floor * 20;
       this.color = conf.color;
       this.spawnTimer = 1.35;
@@ -104,6 +131,8 @@
       this.bossTimers = [];
       this.introDone = false;
       this.contactCd = 1;
+      this.invulnTimer = 0;
+      this.guardTimer = 0;
       this.animTime = 0;
       this.walkTime = 0;
       this.facing = -1;
@@ -214,19 +243,39 @@
     }
 
     phaseCheck() {
-      if (this.phase === 1 && this.hp <= this.maxHp * 0.6) {
-        this.phase = 2;
-        this.speedBase *= 1.22;
+      const thresholds = this.conf.thresholds || [0.6];
+      while (this.phase <= thresholds.length && this.hp <= this.maxHp * thresholds[this.phase - 1]) {
+        this.phase++;
+        this.speedBase *= 1.18;
         this.attackCd = Math.min(this.attackCd, 0.55);
+        // 转阶段硬直：全身护盾 1.8 秒，玩家可以调整站位。
+        this.invulnTimer = Math.max(this.invulnTimer, 1.8);
         Ink.FX.explosion(this.game, this.x, this.y, 120, this.color);
-        Ink.FX.text(this.game, '二阶段 · ' + this.name + ' 动了真格', this.x, this.y - 88, '#ffd36b', 18, 1.4);
+        Ink.FX.text(this.game, (this.phase === 2 ? '二阶段' : '三阶段') + ' · ' + this.name + ' 动了真格',
+          this.x, this.y - 88, '#ffd36b', 18, 1.4);
         this.game.addShake(9, 0.45);
         this.game.audio.sfx('boss');
         this.ring(24, 205, { color: '#ffd36b' });
+        if (this.conf.finalBoss) {
+          // 创世者：每次合书召出四枚“目录条目”，打碎它们才能继续。
+          for (let i = 0; i < 4; i++) {
+            const a = Math.PI * 2 * i / 4 + this.animTime;
+            const pos = this.clampPoint(this.x + Math.cos(a) * 150, this.y + Math.sin(a) * 120, 20);
+            Ink.spawnEnemy(this.game, 'tome', pos.x, pos.y, {
+              elite: true, floor: this.floor, spawnTimer: 0.5
+            });
+          }
+          Ink.FX.text(this.game, '合书 · 四枚目录条目浮现', this.x, this.y - 110, '#ffe08a', 13, 1.8);
+        }
       }
     }
 
     takeDamage(amount, opts = {}) {
+      if (this.invulnTimer > 0) {
+        Ink.FX.text(this.game, '合书 · 无效', this.x, this.y - 60, '#e8c170', 12, 0.5);
+        return 0;
+      }
+      if (this.guardTimer > 0) amount *= 0.45;
       const dealt = super.takeDamage(amount, opts);
       this.phaseCheck();
       return dealt;
@@ -244,6 +293,8 @@
       this.hitFlash = Math.max(0, this.hitFlash - dt);
       this.slowTimer = Math.max(0, this.slowTimer - dt);
       this.markTimer = Math.max(0, this.markTimer - dt);
+      this.invulnTimer = Math.max(0, this.invulnTimer - dt);
+      this.guardTimer = Math.max(0, this.guardTimer - dt);
       this.trappedTimer = 0; // Boss 永不被困
       this.tauntTimer = Math.max(0, this.tauntTimer - dt);
       this.contactCd = Math.max(0, this.contactCd - dt);
@@ -286,7 +337,7 @@
       this.attackCd -= dt;
       if (this.attackCd > 0) return false;
       const floorRush = Math.max(0.72, 1 - 0.07 * (this.floor - 1));
-      this.attackCd = this.conf.interval * intervalScale * floorRush * (this.phase === 2 ? 0.68 : 1);
+      this.attackCd = this.conf.interval * intervalScale * floorRush * (this.phase >= 2 ? 0.68 : 1);
       this.pattern++;
       return true;
     }
@@ -561,6 +612,168 @@
       this.game.audio.sfx('portal');
     }
 
+    // ── 外庭三客 · 巴斯光年：点名 / 表格 / 红批注 ─────────
+    buzz(dt, target) {
+      this.orbit(dt, target, 245);
+      if (!this._tickAttack(dt, 1.0)) return;
+      const p = this.pattern % 3;
+      if (p === 0) {
+        this.windup(0.75, () => {
+          for (let i = -1; i <= 1; i++) {
+            this.fireAt(target, {
+              offset: i * 0.12, speed: 470, radius: 7, visual: 'needle',
+              color: '#b9e0a6', damage: this.damage * 0.8
+            });
+          }
+          this.after(0.28, () => {
+            this.fireAt(target, {
+              speed: 520, radius: 8, visual: 'needle',
+              color: '#e4ffb8', damage: this.damage * 1.0
+            });
+          });
+        }, { type: 'line', angle: U.angleTo(this, target), length: 540, color: '#8ecf8a' });
+      } else if (p === 1) {
+        const a = U.angleTo(this, target);
+        Ink.spread(this.game, this.x, this.y - 4, a, 7, 0.14, {
+          owner: 'enemy', source: this, speed: 300, radius: 7,
+          damage: this.damage * 0.7, color: '#d8e6b0', visual: 'ink',
+          life: 3.4, slow: 0.72, sourceKey: 'buzz'
+        });
+        this.game.audio.sfx('shootInk');
+        this.after(0.35, () => this.fieldAt('holy', target.x, target.y, 68, 0.3, 1.6, { slow: 0.7 }));
+      } else {
+        this.windup(0.9, () => {
+          this.fieldAt('holy', target.x, target.y, 84, 0.8, 0.6, { damage: this.damage });
+          this.ring(14, 150, { color: '#ff9b90', visual: 'ink' });
+          this.game.addShake(4, 0.2);
+          Ink.FX.text(this.game, '请注意，这是规定', this.x, this.y - 76, '#ff9b90', 14, 1.2);
+        }, { type: 'circle', radius: 96, color: '#ff9b90' });
+      }
+    }
+
+    // ── 外庭三客 · 柳铁柱：锻打 / 飞锤 / 诗稿 / 铁砧 ─────
+    liu(dt, target) {
+      if (this.dash) return this._updateDash(dt, target);
+      this.orbit(dt, target, 215);
+      if (!this._tickAttack(dt, 0.92)) return;
+      const p = this.pattern % 3;
+      if (p === 0) {
+        const a = U.angleTo(this, target);
+        this.windup(0.6, () => {
+          this.dash = { angle: a, speed: 520, t: 0.34, hit: false };
+          this.after(0.42, () => {
+            this.dash = { angle: U.angleTo(this, target), speed: 560, t: 0.30, hit: false };
+            Ink.FX.ring(this.game, { x: this.x, y: this.y, r0: 8, r1: 80, life: 0.3, color: '#ff9a5c', width: 3 });
+          });
+        }, { type: 'line', angle: a, length: 420, color: '#ff9a5c' });
+      } else if (p === 1) {
+        this.windup(0.5, () => {
+          this.fireAt(target, {
+            speed: 380, radius: 12, visual: 'orb', scale: 2.2,
+            color: '#ffb15c', damage: this.damage * 1.15, knockback: 80
+          });
+          this.after(0.28, () => this.fireAt(target, {
+            speed: 620, radius: 9, visual: 'orb', scale: 1.5,
+            color: '#ffd08a', damage: this.damage * 0.9
+          }));
+        }, { type: 'line', angle: U.angleTo(this, target), length: 500, color: '#ffb15c' });
+      } else {
+        const a = U.angleTo(this, target);
+        for (let i = -2; i <= 2; i++) {
+          this.fireAt(target, {
+            offset: i * 0.16, speed: 330, radius: 7, visual: 'ink',
+            color: '#f0e0c0', damage: this.damage * 0.7, slow: 0.65
+          });
+        }
+        this.fieldAt('ink', target.x, target.y, 64, 0.5, 2.0, { slow: 0.58 });
+        Ink.FX.text(this.game, '横看成岭侧成峰', this.x, this.y - 74, '#f0e0c0', 13, 1.3);
+      }
+    }
+
+    // ── 外庭三客 · 百越玉女：铜鼓 / 羽矢 / 玉璧 / 巫舞 ───────
+    yuenu(dt, target) {
+      this.orbit(dt, target, 235);
+      if (!this._tickAttack(dt, 0.95)) return;
+      const p = this.pattern % 3;
+      if (p === 0) {
+        this.windup(0.65, () => {
+          for (let i = 0; i < 3; i++) {
+            this.after(i * 0.18, () => this.ring(10 + i * 2, 160 + i * 25, {
+              color: '#6be0d2', visual: 'orb', radius: 6
+            }));
+          }
+          this.game.audio.sfx('bell');
+        }, { type: 'circle', radius: 130, color: '#6be0d2' });
+      } else if (p === 1) {
+        const a = U.angleTo(this, target);
+        for (let i = -2; i <= 2; i++) {
+          this.fireAt(target, {
+            offset: i * 0.16, speed: 230, radius: 6, visual: 'petal',
+            color: '#b8fff0', damage: this.damage * 0.6,
+            homing: true, homingTarget: this.game.player, homingDelay: 0.35
+          });
+        }
+        this.fieldAt('poison', target.x, target.y, 70, 0.5, 2.2, { slow: 0.55 });
+      } else {
+        this.windup(0.7, () => {
+          this.guardTimer = 1.4;
+          this.ring(16, 200, { color: '#9ff0e2', visual: 'spark' });
+          Ink.FX.text(this.game, '玉璧 · 正面不破', this.x, this.y - 72, '#9ff0e2', 13, 1.1);
+          this.after(0.5, () => this.fieldAt('poison', target.x, target.y, 74, 0.4, 2.4, { slow: 0.6 }));
+        }, { type: 'circle', radius: 110, color: '#9ff0e2' });
+      }
+    }
+
+    // ── 创世者：增 / 删 / 改 ──────────────────────────────
+    creator(dt, target) {
+      this.orbit(dt, target, 250, 0.65);
+      if (!this._tickAttack(dt, 0.95)) return;
+      const p = this.pattern % 3;
+      if (p === 0) {
+        // 增：标点雨。问号追踪，句号落地开花。
+        this.windup(0.75, () => {
+          for (let i = 0; i < 10; i++) {
+            const left = i % 2 === 0;
+            this.fireAt(target, {
+              offset: U.rand(-0.6, 0.6), speed: left ? 220 : 300,
+              radius: 7, visual: left ? 'orb' : 'ink',
+              color: left ? '#ffe08a' : '#e8c170',
+              damage: this.damage * 0.55,
+              homing: left, homingTarget: this.game.player, homingDelay: 0.4
+            });
+          }
+          this.ring(14, 130, { color: '#ffe08a', visual: 'ink' });
+        }, { type: 'circle', radius: 150, color: '#ffe08a' });
+      } else if (p === 1) {
+        // 删：横向与纵向删除线。
+        this.windup(0.9, () => {
+          for (let i = 0; i < 4; i++) {
+            const x = 140 + i * 220;
+            Ink.FX.beam(this.game, {
+              x, y: 100, angle: Math.PI / 2, length: 500, width: 16,
+              warn: 0.35, active: 0.25, damage: this.damage, color: '#ff7a7a', source: this
+            });
+          }
+          this.ring(18, 180, { color: '#ff7a7a', visual: 'needle' });
+        }, { type: 'cross', color: '#ff7a7a' });
+      } else {
+        // 改：已经在场上的字块会变色、加速、追踪。
+        this.windup(0.8, () => {
+          this.ring(18, 150, { color: '#c8a0ff', visual: 'ink' });
+          for (let i = 0; i < 8; i++) {
+            this.fireAt(target, {
+              offset: U.rand(-0.7, 0.7), speed: 260, radius: 8,
+              visual: 'ink', color: i % 2 ? '#c8a0ff' : '#ffe08a',
+              damage: this.damage * 0.65,
+              homing: true, homingTarget: this.game.player, homingDelay: 0.7
+            });
+          }
+          this.after(0.45, () => this.fieldAt('holy', target.x, target.y, 100, 0.7, 0.5, { damage: this.damage * 1.2 }));
+          Ink.FX.text(this.game, '改 · 你的下一句也归我', this.x, this.y - 78, '#c8a0ff', 14, 1.4);
+        }, { type: 'circle', radius: 140, color: '#c8a0ff' });
+      }
+    }
+
     // ── 绘制 ──────────────────────────────────────────────
     drawTelegraph(ctx, game) {
       if (!this.telegraph) return;
@@ -644,6 +857,17 @@
         ctx.restore();
       }
 
+      if (this.invulnTimer > 0) {
+        ctx.save();
+        ctx.globalAlpha = 0.32 + Math.sin(game.time * 8) * 0.12;
+        ctx.strokeStyle = this.conf.finalBoss ? '#ffe08a' : '#e8d8ff';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y + bob, this.radius + 16, 0, U.TAU);
+        ctx.stroke();
+        ctx.restore();
+      }
+
       const frame = Math.floor(this.walkTime * 3.4 + this.animTime) % 2;
       Ink.Art.drawSprite(ctx, 'boss:' + this.id, this.x, this.y + bob, this.scale, {
         frame, flip: this.facing < 0, alpha
@@ -654,7 +878,7 @@
         });
       }
 
-      if (this.phase === 2) {
+      if (this.phase >= 2) {
         ctx.save();
         ctx.globalAlpha = 0.6 + Math.sin(game.time * 6) * 0.25;
         ctx.fillStyle = '#ffb27a';

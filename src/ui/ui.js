@@ -410,7 +410,7 @@
         size: 12, selected: tab === 'boss', codex: true,
         onClick: () => { this.codexTab = 'boss'; this.codexIndex = 0; }
       });
-      text(ctx, isBoss ? '九位守门人 · 基础数值与层数成长' : '九种游荡者 · 基础数值与攻击方式', 760, 118, {
+      text(ctx, isBoss ? '十三位守门人 · 基础数值与层数成长' : '九种游荡者 · 基础数值与攻击方式', 760, 118, {
         size: 9, color: PAL.muted, align: 'right'
       });
 
@@ -420,10 +420,10 @@
         border: 'rgba(69,58,96,.7)',
         accent: 'rgba(232,193,112,.14)'
       });
-      const rowH = 35;
+      const rowH = 26;
       for (let i = 0; i < list.length; i++) {
         const e = list[i];
-        const ry = 154 + i * (rowH + 3);
+        const ry = 154 + i * (rowH + 2);
         const sel = i === this.codexIndex;
         const mouse = this.game.input.mouse;
         const hover = !this.game.touchMode && hit({ x: 62, y: ry, w: 236, h: rowH }, mouse.x, mouse.y);
@@ -434,15 +434,15 @@
           ctx.fillRect(62, ry, 3, rowH);
         }
         const spriteKey = isBoss ? 'boss:' + e.id : 'enemy:' + e.id;
-        Ink.Art.drawSprite(ctx, spriteKey, 84, ry + 18, isBoss ? 1.15 : 1.45, {
+        Ink.Art.drawSprite(ctx, spriteKey, 84, ry + 13, isBoss ? 0.92 : 1.12, {
           frame: Math.floor(this.time * 2 + i) % 2
         });
-        text(ctx, '0' + (i + 1), 103, ry + 12, { size: 8, color: PAL.muted });
-        text(ctx, e.name, 116, ry + 17, {
-          size: e.name.length > 5 ? 10.5 : 12, color: sel ? PAL.gold2 : PAL.parchment, bold: sel
+        text(ctx, '0' + (i + 1), 103, ry + 10, { size: 7, color: PAL.muted });
+        text(ctx, e.name, 116, ry + 13, {
+          size: e.name.length > 5 ? 9.2 : 11, color: sel ? PAL.gold2 : PAL.parchment, bold: sel
         });
-        text(ctx, isBoss ? '第 ' + e.floor + ' 庭' : 'HP ' + e.hp, 288, ry + 17, {
-          size: 9, color: sel ? PAL.gold : PAL.muted, align: 'right'
+        text(ctx, isBoss ? '第 ' + e.floor + ' 庭' : 'HP ' + e.hp, 288, ry + 13, {
+          size: 8, color: sel ? PAL.gold : PAL.muted, align: 'right'
         });
         this.buttons.push({
           x: 62, y: ry, w: 236, h: rowH, label: e.name,
@@ -781,7 +781,7 @@
         text(ctx, '白墨、朱笔、火，或那把一直空着的椅子。', 480, 116, {
           size: 11, color: PAL.muted, align: 'center'
         });
-        text(ctx, '残稿 ' + (s.fragments || 0) + ' / 5   ·   庭主真名 ' + (s.trueNames || 0) + ' / 9   ·   庭主印 ' + (s.seals || 0) + ' / 3', 480, 142, {
+        text(ctx, '残稿 ' + (s.fragments || 0) + ' / 5   ·   庭主真名 ' + (s.trueNames || 0) + ' / 5   ·   庭主印 ' + (s.seals || 0) + ' / 3', 480, 142, {
           size: 10, color: PAL.gold2, align: 'center'
         });
         const choices = this.game.endingChoices || [];
@@ -882,12 +882,12 @@
       text(ctx, 'COURT OF WONDROUS TREES', 480, 249, {
         size: 16, color: PAL.gold, align: 'center', bold: true
       });
-      text(ctx, '奇树成庭，九主守门。', 480, 294, {
+      text(ctx, '奇树成庭，众主守门。', 480, 294, {
         size: 15, color: PAL.parchment2, align: 'center'
       });
 
       const pulse = 0.55 + Math.sin(t * 2.4) * 0.18;
-      text(ctx, '九层 · 每层七关 · 九庭主 · 四十五兵刃', 480, 330, {
+      text(ctx, '五层 · 每层七关 · 十三守门人 · 四十九兵刃', 480, 330, {
         size: 12, color: U.rgba(PAL.muted, pulse), align: 'center'
       });
 
@@ -919,7 +919,7 @@
       text(ctx, 'MIT License · 零依赖 · 程序化像素美术 / WebAudio 音效', 36, 580, {
         size: 9, color: 'rgba(109,99,136,.7)'
       });
-      text(ctx, 'v3.3.0', 924, 580, { size: 9, color: 'rgba(109,99,136,.7)', align: 'right' });
+      text(ctx, 'v4.0.0', 924, 580, { size: 9, color: 'rgba(109,99,136,.7)', align: 'right' });
     }
 
     // ── 角色选择 ──────────────────────────────────────────
@@ -983,8 +983,8 @@
       });
 
       const stats = [
-        { label: '生命', value: def.hp, max: 110, color: '#e06a74' },
-        { label: '护甲', value: def.armor, max: 10, color: '#8fd6ff' },
+        { label: '生命', value: def.hp, max: 20, color: '#e06a74' },
+        { label: '护盾', value: def.armor, max: 10, color: '#8fd6ff' },
         { label: '移速', value: def.speed, max: 270, color: '#8ef0c8' }
       ];
       for (let i = 0; i < 3; i++) {
@@ -1063,8 +1063,8 @@
 
       // 面板数值
       const stats = [
-        { label: '生命', value: def.hp, max: 110, color: '#e06a74' },
-        { label: '护甲', value: def.armor, max: 10, color: '#8fd6ff' },
+        { label: '生命', value: def.hp, max: 20, color: '#e06a74' },
+        { label: '护盾', value: def.armor, max: 10, color: '#8fd6ff' },
         { label: '移速', value: def.speed, max: 270, color: '#8ef0c8' }
       ];
       for (let i = 0; i < 3; i++) {
@@ -1117,32 +1117,34 @@
       const p = game.player;
       if (!p) return;
 
-      // 生命 / 护甲 / 经验
-      panel(ctx, 14, 10, 280, 76, { fill: 'rgba(10,8,18,.9)' });
+      // 生命 / 护盾 / 能量 / 经验：20 点生命模型下全部数字化显示。
+      panel(ctx, 14, 10, 280, 86, { fill: 'rgba(10,8,18,.9)' });
       ctx.fillStyle = p.def.color;
-      ctx.fillRect(18, 14, 4, 68);
+      ctx.fillRect(18, 14, 4, 78);
 
       text(ctx, p.def.name, 32, 25, { size: 13, color: p.def.accent || PAL.parchment, bold: true });
       text(ctx, 'Lv.' + p.level, 88, 25, { size: 10, color: PAL.gold });
-      text(ctx, String(Math.ceil(p.hp)) + ' / ' + Math.round(p.maxHp), 282, 25, {
+      text(ctx, Math.ceil(p.hp) + ' / ' + Math.round(p.maxHp), 282, 25, {
         size: 10, color: PAL.parchment, align: 'right'
       });
 
-      bar(ctx, 32, 35, 246, 12, p.hp / p.maxHp, p.hp / p.maxHp < 0.3 ? '#ff5f6d' : '#d94f5c');
-      bar(ctx, 32, 51, 184, 7, p.maxArmor > 0 ? p.armor / p.maxArmor : 0, '#75cde8', { segments: false });
-      text(ctx, '护甲 ' + Math.ceil(p.armor), 222, 55, { size: 8, color: '#9fe8ff' });
+      bar(ctx, 32, 34, 246, 11, p.hp / p.maxHp, p.hp / p.maxHp < 0.3 ? '#ff5f6d' : '#d94f5c');
+      bar(ctx, 32, 47, 184, 6, p.maxArmor > 0 ? p.armor / p.maxArmor : 0, '#75cde8', { segments: false });
+      text(ctx, '护盾 ' + Math.ceil(p.armor), 222, 52, { size: 8, color: '#9fe8ff' });
+      bar(ctx, 32, 57, 184, 6, p.maxEnergy > 0 ? p.energy / p.maxEnergy : 0, '#8fd6ff', { segments: false });
+      text(ctx, '能量 ' + Math.ceil(p.energy), 222, 62, { size: 8, color: '#8fd6ff' });
 
       // 经验
-      bar(ctx, 32, 65, 246, 4, p.xp / p.xpNext, PAL.gold, { segments: false });
-      text(ctx, 'XP', 282, 67, { size: 7, color: PAL.muted, align: 'right' });
+      bar(ctx, 32, 69, 246, 4, p.xp / p.xpNext, PAL.gold, { segments: false });
+      text(ctx, 'XP', 282, 71, { size: 7, color: PAL.muted, align: 'right' });
 
       // 影犬状态（仅御狶）
       if (game.dog && p.charId === 'smartdog') {
         const dog = game.dog;
-        const mode = dog.alive ? '影犬' : '召回中 ' + Math.ceil(dog.respawnTimer) + 's';
-        text(ctx, mode, 32, 81, { size: 8, color: dog.alive ? '#e8a34e' : PAL.muted });
-        if (dog.alive) bar(ctx, 66, 78, 120, 5, dog.hp / dog.maxHp, '#e8a34e', { segments: false });
-        else bar(ctx, 66, 78, 120, 5, 1 - dog.respawnTimer / dog.respawnTime, '#6d6388', { segments: false });
+        const mode = dog.alive ? '影犬' : '召回 ' + Math.ceil(dog.respawnTimer) + 's';
+        text(ctx, mode, 32, 83, { size: 8, color: dog.alive ? '#e8a34e' : PAL.muted });
+        if (dog.alive) bar(ctx, 70, 80, 112, 4, dog.hp / dog.maxHp, '#e8a34e', { segments: false });
+        else bar(ctx, 70, 80, 112, 4, 1 - dog.respawnTimer / dog.respawnTime, '#6d6388', { segments: false });
       }
 
       // 楼层与房间信息
@@ -1150,7 +1152,8 @@
       if (floor) {
         const room = game.room;
         const stage = room ? (room.stage || (room.type === 'shop' ? '商' : 1)) : 1;
-        text(ctx, '第 ' + floor.number + ' 层 · 关卡 ' + stage + ' / 7', 480, 20, {
+        const stageLabel = floor.index >= Ink.FLOOR_COUNT - 1 ? '终局' : '关卡 ' + stage + ' / 7';
+        text(ctx, '第 ' + floor.number + ' 层 · ' + stageLabel, 480, 20, {
           size: 13, color: PAL.gold, align: 'center', bold: true
         });
         if (room) {
@@ -1264,7 +1267,7 @@
       const shown = ids;
       const rows = Math.ceil(shown.length / 2);
       const h = 26 + rows * 16;
-      const x = 14, y = 92, w = 226, colW = 108;
+      const x = 14, y = 100, w = 226, colW = 108;
       panel(ctx, x, y, w, h, { fill: 'rgba(8,6,14,.82)' });
       text(ctx, '机 缘', x + 9, y + 14, { size: 9, color: PAL.gold, bold: true });
       text(ctx, String(p.passives.length) + ' 层', x + w - 9, y + 14, {
@@ -1408,9 +1411,11 @@
       const cd = p.weaponCd || 0;
       const maxCd = p._weaponCooldown ? p._weaponCooldown() : 1;
       bar(ctx, x + 48, y + 27, w - 108, 4, 1 - U.clamp(cd / Math.max(0.01, maxCd), 0, 1), wdef.color, { segments: false });
+      const cost = p.weaponEnergyCost ? p.weaponEnergyCost(wdef) : 0;
+      const shortage = cost > 0 && p.energy < cost;
       text(ctx, '威伤 ' + (wdef.damage || 0) + ' · ' + (Ink.Rarity[wdef.rarity] || {}).name +
-        (wdef.charged ? ' · 蓄力' : ''), x + 48, y + 43, {
-        size: 8, color: wdef.charged ? '#ffe6a8' : 'rgba(207,192,157,.62)'
+        ' · ' + (cost > 0 ? '耗能 ' + cost : '无耗能') + (wdef.charged ? ' · 蓄力' : ''), x + 48, y + 43, {
+        size: 8, color: shortage ? '#ff7d7d' : (wdef.charged ? '#ffe6a8' : 'rgba(207,192,157,.62)')
       });
 
       // 武器可以主动丢弃；触屏点小按钮，桌面按 G。
@@ -1492,9 +1497,13 @@
         });
       }
 
-      // 技能名
+      // 技能名 / 能量消耗
+      const energyReady = p.energy >= (p.skillEnergyCost || 0);
       text(ctx, p.def.skillName, c.x, c.y + c.r + 18, {
         size: 9, color: ready ? PAL.parchment2 : 'rgba(207,192,157,.55)', align: 'center'
+      });
+      text(ctx, '耗能 ' + (p.skillEnergyCost || 0) + (energyReady ? '' : ' · 不足'), c.x, c.y + c.r + 30, {
+        size: 8, color: energyReady ? '#8fd6ff' : '#ff7d7d', align: 'center'
       });
       ctx.restore();
     }
@@ -1965,7 +1974,7 @@
         size: 48, color: PAL.gold2, align: 'center', bold: true,
         shadowColor: '#2a1b00', shadowY: 5
       });
-      text(ctx, '一庭奇树，九主尽数落子。', 480, 166, {
+      text(ctx, '一庭奇树，十三主尽数落子。', 480, 166, {
         size: 12, color: PAL.parchment2, align: 'center'
       });
       Ink.Art.drawBossIcon(ctx, Ink.FLOOR_COUNT - 1, 480, 210, 2.2,
@@ -2035,8 +2044,8 @@
             '第 2、4 关后：机制被动三选一',
             '精英关旁：行商换武器',
             '庭主掉落专属武器',
-            '九位庭主分三层，强度逐层提升',
-            '三层通关即为胜利'
+            '五层十三位守门人，强度逐层提升',
+            '五层通关即为胜利'
           ]
         }
       ];

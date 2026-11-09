@@ -110,7 +110,7 @@
     role: '召唤 · 协同',
     color: PAL.smartdog,
     accent: '#b48cff',
-    hp: 96,
+    hp: 17,
     armor: 5,
     speed: 210,
     damage: 7,

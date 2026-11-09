@@ -146,7 +146,7 @@
   Ink.registerCharacter({
     id: 'mouse', name: '小牢鼠', title: '掘地行者', role: '突进 · 爆发',
     color: '#b9895a', accent: '#f2ca82',
-    hp: 86, armor: 3, speed: 238, damage: 8, atkInterval: 0.34, range: 170, cooldown: 9.0,
+    hp: 13, armor: 3, speed: 238, damage: 8, atkInterval: 0.34, range: 170, cooldown: 9.0,
     skillName: '钻地', skillDesc: '钻入地下 2 秒：无敌，随走位方向移动，对沿途敌人造成伤害；结束时破土而出，造成高额范围伤害与击退。',
     passiveName: '余震', passiveDesc: '破土后的 4 秒内，武器伤害提高 25%。',
     quote: '地底下，没有墙。',

@@ -278,7 +278,7 @@
     role: '中远 · 封锁',
     color: PAL.ziyu,
     accent: '#e05a55',
-    hp: 88,
+    hp: 16,
     armor: 3,
     speed: 200,
     damage: 8,

@@ -2,7 +2,7 @@
  * src/characters/qiyun.js
  * 棋云 —— 中距离控场
  *
- * 被动「弈子」：每次施放主动技能，会在原地留下一枚弈子（最多 6 枚）。
+ * 被动「落子有声」：技能后留子（最多 4 枚），弈子周期激光；每枚弈子 +3% 移速。
  * 主动「棋局·引爆」：引爆场上全部弈子，造成范围伤害并减速；
  *                   引爆后会在脚下再落下一枚新的弈子。
  *
@@ -34,9 +34,9 @@
       this.chessHits++;
       if (this.chessHits < 5) return;
       this.chessHits = 0;
-      if (this.pieces.length >= 6) return;
+      if (this.pieces.length >= 4) return;
       this.pieces.push({
-        x: enemy.x, y: enemy.y, life: 26, maxLife: 26, phase: Math.random() * 6
+        x: enemy.x, y: enemy.y, life: 26, maxLife: 26, phase: Math.random() * 6, laserCd: 0.45
       });
       Ink.FX.ring(this.game, {
         x: enemy.x, y: enemy.y, r0: 26, r1: 6, life: 0.35, color: PAL.gold, width: 2
@@ -62,10 +62,11 @@
     useSkill() {
       const p = this.player;
       const g = this.game;
-      const dmg = 24 + p.level * 2.8 + p.upgrades.damage * 2.2;
+      const dmg = (24 + p.level * 2.8 + p.upgrades.damage * 2.2) * 1.2;
 
       // 引爆已有弈子
       let count = 0;
+      const hitCount = new Map();
       for (const piece of this.pieces) {
         if (piece.life <= 0) continue;
         count++;
@@ -73,22 +74,31 @@
         Ink.FX.ring(g, { x: piece.x, y: piece.y, r0: 10, r1: 104, life: 0.42, color: PAL.gold, width: 4 });
         for (const e of g.enemies) {
           if (e.dead) continue;
-          if (U.dist(piece.x, piece.y, e.x, e.y) < 96 + e.radius) {
+          if (U.dist(piece.x, piece.y, e.x, e.y) < 104 + e.radius) {
             g.damageEnemy(e, dmg, {
               color: '#ffe6a8', crit: false,
               knockback: 80, angle: U.angleTo(piece, e)
             });
             e.applySlow(0.5, 2.0);
+            hitCount.set(e, (hitCount.get(e) || 0) + 1);
           }
         }
       }
 
+      // 同一敌人被两枚以上弈子覆盖：易伤 2 秒。
+      for (const [e, n] of hitCount) {
+        if (n >= 2 && !e.dead) {
+          e.vulnTimer = 2.0;
+          Ink.FX.text(g, '棋势易伤', e.x, e.y - 44, '#ffd36b', 12, 0.9);
+        }
+      }
       this.pieces.length = 0;
       // 被动：技能结束后留下一枚新弈子
       this.pieces.push({
-        x: p.x, y: p.y, life: 26, maxLife: 26, phase: Math.random() * 6
+        x: p.x, y: p.y, life: 26, maxLife: 26, phase: Math.random() * 6, laserCd: 0.45
       });
-      if (this.pieces.length > 6) this.pieces.shift();
+      if (this.pieces.length > 4) this.pieces.shift();
+      if (count > 0) p.reduceCooldown(1);
 
       if (count > 0) {
         g.audio.sfx('explosion');
@@ -102,11 +112,34 @@
       return true;
     }
 
+    speedBonus() {
+      return this.pieces.filter((p) => p.life > 0).length * 0.03;
+    }
+
     update(dt) {
       for (let i = this.pieces.length - 1; i >= 0; i--) {
         const piece = this.pieces[i];
         piece.life -= dt;
-        if (piece.life <= 0) this.pieces.splice(i, 1);
+        piece.laserCd = (piece.laserCd || 0) - dt;
+        if (piece.life <= 0) { this.pieces.splice(i, 1); continue; }
+        if (piece.laserCd > 0) continue;
+        // 弈子周期性地向最近敌人发射短程激光。
+        let target = null, best = 260;
+        for (const e of this.game.enemies) {
+          if (e.dead) continue;
+          const d = U.dist(piece.x, piece.y, e.x, e.y);
+          if (d < best) { best = d; target = e; }
+        }
+        if (!target) continue;
+        piece.laserCd = 1.15;
+        Ink.FX.beam(this.game, {
+          x: piece.x, y: piece.y - 16,
+          angle: U.angleTo(piece, target), length: best + 12,
+          warn: 0, active: 0.14, width: 2, color: '#ffe6a8'
+        });
+        this.game.damageEnemy(target, 4 + this.player.level * 1.2, {
+          color: '#ffe6a8', crit: false, knockback: 8
+        });
       }
     }
 
@@ -157,7 +190,7 @@
     role: '中距离 · 控场',
     color: PAL.qiyun,
     accent: PAL.gold,
-    hp: 92,
+    hp: 18,
     armor: 4,
     speed: 205,
     damage: 9,

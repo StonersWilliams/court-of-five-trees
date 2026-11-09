@@ -1029,6 +1029,114 @@
       // 纸页碎屑
       dot(c, 2, 9, '#d8c3a3');
       dot(c, 15, 12, '#d8c3a3');
+    },
+
+    // 外庭三客 · 巴斯光年：墨绿中山装、圆框眼镜、公文包与教鞭。
+    buzz(c, frame) {
+      const b = frame ? 0 : 1;
+      px(c, 3, 21, 18, 1, '#0d1410');
+      px(c, 5, 8 - b, 14, 11, '#49654b');
+      px(c, 6, 9 - b, 12, 3, '#6f8f6a');
+      px(c, 7, 13 - b, 10, 2, '#2f4635');
+      // 秃顶与两鬓
+      px(c, 7, 2 - b, 10, 6, '#d8c39a');
+      px(c, 6, 4 - b, 2, 3, '#8b8f7a');
+      px(c, 16, 4 - b, 2, 3, '#8b8f7a');
+      // 裂开的圆框眼镜
+      px(c, 8, 5 - b, 3, 2, '#efe2ba');
+      px(c, 13, 5 - b, 3, 2, '#efe2ba');
+      px(c, 11, 5 - b, 2, 1, '#2d2b22');
+      dot(c, 9, 5 - b, '#1a1a18'); dot(c, 14, 5 - b, '#1a1a18');
+      // 公文包与教鞭
+      px(c, 1, 14, 4, 5, '#6b4f2e');
+      px(c, 2, 13, 2, 1, '#c9a45c');
+      px(c, 18, 13, 6, 1, '#e8c170');
+      dot(c, 23, 13, '#ff8a4a');
+      // 红笔批注
+      px(c, 4, 20, 16, 1, '#a33b3b');
+    },
+
+    // 外庭三客 · 柳铁柱：铁灰围裙、炉火锤与诗稿。
+    liu(c, frame) {
+      const b = frame ? 0 : 1;
+      px(c, 3, 21, 18, 1, '#120d0b');
+      px(c, 5, 8 - b, 14, 12, '#5f5a55');
+      px(c, 6, 11 - b, 12, 7, '#3e3935');
+      px(c, 7, 8 - b, 10, 3, '#8a7c6a');
+      // 铁簪发髻
+      px(c, 8, 2 - b, 8, 5, '#2e2a28');
+      px(c, 11, 2 - b, 1, 3, '#c9a45c');
+      px(c, 16, 3 - b, 2, 1, '#c9a45c');
+      // 围裙带
+      px(c, 6, 12 - b, 12, 2, '#2b2724');
+      // 脸与胡茬
+      px(c, 8, 6 - b, 7, 4, '#b08a62');
+      dot(c, 9, 7 - b, '#1a1612'); dot(c, 13, 7 - b, '#1a1612');
+      // 左手锤
+      px(c, 1, 12, 2, 7, '#8a6a4a');
+      px(c, 0, 9, 5, 4, '#5b5b60');
+      px(c, 2, 9, 1, 4, '#ff9a5c');
+      // 右手诗稿
+      px(c, 17, 10, 6, 8, '#e6dcc3');
+      px(c, 18, 12, 4, 1, '#8a6a4a');
+      px(c, 18, 14, 4, 1, '#8a6a4a');
+      px(c, 20, 15, 1, 1, '#c94e4b');
+    },
+
+    // 外庭三客 · 百越玉女：深青短衣、白羽、铜鼓与残玉璧。
+    yuenu(c, frame) {
+      const b = frame ? 0 : 1;
+      px(c, 3, 21, 18, 1, '#071413');
+      px(c, 5, 9 - b, 14, 11, '#1f5f59');
+      px(c, 6, 10 - b, 12, 3, '#3fa7a0');
+      px(c, 7, 13 - b, 10, 1, '#d8b07a');
+      // 长发与玉簪
+      px(c, 5, 3 - b, 13, 7, '#1b2c2a');
+      px(c, 14, 2 - b, 3, 1, '#e8dfc2');
+      px(c, 16, 1 - b, 2, 1, '#fff6e0');
+      // 脸
+      px(c, 8, 5 - b, 7, 4, '#e0c6a8');
+      dot(c, 9, 7 - b, '#173b36'); dot(c, 13, 7 - b, '#173b36');
+      px(c, 9, 9 - b, 5, 1, '#b06a68');
+      // 三白羽
+      px(c, 4, 0 - b, 1, 5, '#f0e8d2');
+      px(c, 3, 1 - b, 1, 4, '#d8c8a8');
+      px(c, 6, 1 - b, 1, 4, '#f0e8d2');
+      // 铜鼓与玉璧
+      px(c, 0, 13, 6, 4, '#8a6a3a');
+      px(c, 1, 14, 4, 2, '#b58a4f');
+      dot(c, 2, 14, '#6be0d2');
+      px(c, 18, 6, 5, 7, '#8a9c8f');
+      px(c, 19, 7, 3, 5, '#bfe8d8');
+      dot(c, 20, 9, '#f4fff8');
+    },
+
+    // 创世者：半开线装书、锁链、朱笔与“脸”。
+    creator(c, frame) {
+      const b = frame ? 0 : 1;
+      px(c, 1, 20, 22, 2, '#1a120e');
+      // 书页
+      px(c, 2, 6 - b, 20, 13, '#d8c08a');
+      px(c, 3, 7 - b, 8, 11, '#f0dfb2');
+      px(c, 13, 7 - b, 8, 11, '#e8d39e');
+      px(c, 11, 6 - b, 2, 13, '#7a2b2b');
+      // 锁链
+      for (let i = 0; i < 5; i++) dot(c, 4 + i * 4, 19, '#8a6a4a');
+      // 书页文字
+      for (let i = 0; i < 4; i++) {
+        px(c, 4, 9 + i * 2, 6, 1, '#8a6a4a');
+        px(c, 14, 9 + i * 2, 6, 1, '#8a6a4a');
+      }
+      // 伸出的朱笔与手
+      px(c, 16, 2 - b, 4, 4, '#e0c6a8');
+      px(c, 19, 0 - b, 2, 5, '#7a2b2b');
+      px(c, 20, 0 - b, 2, 2, '#e8c170');
+      // “脸”在笔尖
+      dot(c, 21, 1 - b, '#fff0c0');
+      dot(c, 21, 2 - b, '#d24b4b');
+      // 翻页白光
+      px(c, 2, 6 - b, 20, 1, '#fff6e0');
+      px(c, 12, 7 - b, 1, 11, '#fff6e0');
     }
   };
 
@@ -1655,9 +1763,11 @@
       const pools = [
         ['truffle', 'sunstar', 'ninesun'],
         ['peach', 'oga', 'june'],
-        ['tower', 'bigmon', 'edo']
+        ['tower', 'bigmon', 'edo'],
+        ['buzz', 'liu', 'yuenu'],
+        ['creator']
       ];
-      const key = bossId || (pools[U.clamp(floorIndex, 0, 2)] || pools[2])[0];
+      const key = bossId || (pools[U.clamp(floorIndex, 0, 4)] || pools[4])[0];
       const cv = getSprite('boss:' + key, 0, null);
       const w = 24 * scale;
       ctx.save();
@@ -1731,6 +1841,20 @@
         px(ctx, x - 11, y - 44, 22, 4, '#a89a78');
         for (let i = 0; i < 4; i++) px(ctx, x - 7, y - 30 + i * 10, 14, 1, '#4a4136');
         dot(ctx, x, y - 44, theme ? theme.accent : PAL.gold);
+      } else if (o.type === 'spike' || o.trap) {
+        // 地刺陷阱：暗铁底座 + 交错尖刺，周期明灭提示危险。
+        const pulse = 0.55 + Math.sin(time * 4.2 + x) * 0.25;
+        px(ctx, x - 18, y - 2, 36, 10, '#171118');
+        px(ctx, x - 15, y - 1, 30, 5, '#42363c');
+        for (let i = 0; i < 5; i++) {
+          const sx = x - 14 + i * 7;
+          px(ctx, sx, y - 12, 5, 12, '#0b080d');
+          px(ctx, sx + 1, y - 15, 3, 15, '#6f5c62');
+          px(ctx, sx + 2, y - 12, 1, 7, '#c7b6ab');
+        }
+        ctx.globalAlpha = pulse;
+        px(ctx, x - 17, y + 7, 34, 2, '#a33b3b');
+        ctx.globalAlpha = 1;
       } else if (o.type === 'crate') {
         px(ctx, x - 14, y - 16, 28, 30, '#0b0806');
         px(ctx, x - 12, y - 14, 24, 26, '#8a5f36');

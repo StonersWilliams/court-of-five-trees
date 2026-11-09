@@ -115,7 +115,7 @@
     },
     {
       id: 'sunstar', name: '环日星神', en: 'SUNSTAR DEITY', title: '把太阳戴在颈上的神',
-      floor: 2, hp: 540, speed: 60, damage: 15, xp: 130, color: '#ffd36b',
+      floor: 1, hp: 540, speed: 60, damage: 15, xp: 130, color: '#ffd36b',
       desc: '第二庭的日轮祭司。它说光应当平等，于是把九轮太阳依次挂在每个生灵头顶。被照到的人都说太亮了，它便再挂一轮，直到谁也睁不开眼。',
       skills: [
         { name: '日光环', desc: '颈后日轮展开，释放一圈缓慢外扩的光弹。' },
@@ -125,7 +125,7 @@
     },
     {
       id: 'ninesun', name: '九阳神君', en: 'NINE-SUN TYRANT', title: '九轮不落的暴君',
-      floor: 3, hp: 600, speed: 52, damage: 16, xp: 140, color: '#ff8a4c',
+      floor: 1, hp: 600, speed: 52, damage: 16, xp: 140, color: '#ff8a4c',
       desc: '第三庭的暴君，九颗太阳是它从九个失败王朝那里抢来的冠冕。它最恨阴影，因为阴影会提醒它：天上本来只有一个太阳。',
       skills: [
         { name: '九日双环', desc: '连续放出两圈方向错开的火弹。' },
@@ -135,7 +135,7 @@
     },
     {
       id: 'peach', name: '桃柱', en: 'PEACH PILLAR', title: '开花不倒的庭柱',
-      floor: 4, hp: 640, speed: 54, damage: 16, xp: 145, color: '#ff9bb0',
+      floor: 2, hp: 640, speed: 54, damage: 16, xp: 145, color: '#ff9bb0',
       desc: '第四庭的桃木庭柱，被雷劈过三次仍不肯倒。每年春天它都开一树花，花瓣落进土里，第二年就长出新的、会咬人的花傀。',
       skills: [
         { name: '花雨', desc: '抖落漫天桃花，花瓣落地后化作弹幕。' },
@@ -145,7 +145,7 @@
     },
     {
       id: 'oga', name: '尾刚一郎', en: 'OGA ICHIRO', title: '只挥一刀的剑鬼',
-      floor: 5, hp: 620, speed: 74, damage: 17, xp: 150, color: '#8f9dff',
+      floor: 2, hp: 620, speed: 74, damage: 17, xp: 150, color: '#8f9dff',
       desc: '第五庭的剑鬼，生前是个总也考不中的武举人。死后它终于练成了“只挥一刀”的绝技，于是把每个闯入者都当成迟到的考官。',
       skills: [
         { name: '居合', desc: '压低身形后瞬间突进，留下一条剑痕。' },
@@ -155,7 +155,7 @@
     },
     {
       id: 'june', name: '六月云之末', en: 'JUNE CLOUD', title: '梅雨尽头的云',
-      floor: 6, hp: 600, speed: 58, damage: 16, xp: 150, color: '#b7d9ff',
+      floor: 2, hp: 600, speed: 58, damage: 16, xp: 150, color: '#b7d9ff',
       desc: '第六庭的雨云，停在梅雨季最后一天，再也不肯走。它说只要雨不停，就没人能说夏天已经过去。云里偶尔会露出一双潮湿的眼睛。',
       skills: [
         { name: '云雨', desc: '在场地各处落下延迟雨点，形成湿滑区域。' },
@@ -165,7 +165,7 @@
     },
     {
       id: 'tower', name: '伦敦塔', en: 'THE TOWER', title: '会走路的钟楼',
-      floor: 7, hp: 720, speed: 42, damage: 18, xp: 160, color: '#d7c39a',
+      floor: 3, hp: 720, speed: 42, damage: 18, xp: 160, color: '#d7c39a',
       desc: '第七庭的钟楼，从一张旧明信片上走下来。它每走一步就敲一次钟，钟声里夹着不同时区的报时。被钟声罩住的人，会同时迟到于所有约会。',
       skills: [
         { name: '十字钟光', desc: '以钟面为轴，放出横竖两道贯穿光柱。' },
@@ -175,7 +175,7 @@
     },
     {
       id: 'bigmon', name: '大大怪', en: 'BIGMON', title: '五树庭的笨重噩梦',
-      floor: 8, hp: 760, speed: 48, damage: 18, xp: 165, color: '#8ef0c8',
+      floor: 3, hp: 760, speed: 48, damage: 18, xp: 165, color: '#8ef0c8',
       desc: '第八庭的看守，没人知道它原来是什么，只知道它很大、很怪，而且总在笑。它把撞塌的院墙当成积木，把来访者当成新积木。',
       skills: [
         { name: '蛮撞', desc: '大步冲撞，撞到墙会短暂眩晕。' },
@@ -185,12 +185,53 @@
     },
     {
       id: 'edo', name: '江户十二口女', en: 'EDO TWELVE-MOUTHS', title: '十二张嘴的都市传说',
-      floor: 9, hp: 800, speed: 68, damage: 19, xp: 170, color: '#c084fc',
+      floor: 3, hp: 800, speed: 68, damage: 19, xp: 170, color: '#c084fc',
       desc: '第九庭的最后一位守门人，传说她每说一句谎就多长一张嘴。如今十二张嘴各说各话，有的在哭，有的在笑，有的在叫你的名字。',
       skills: [
         { name: '扇面', desc: '展开十二骨扇，朝前方喷出扇形弹幕。' },
         { name: '十二口', desc: '在场地各处短暂现身，每个落点都留下一圈咒文。' },
         { name: '咒域', desc: '二阶段展开大范围咒域，持续压缩走位空间。' }
+      ]
+    },
+    {
+      id: 'buzz', name: '巴斯光年', en: 'BUZZ LIGHTYEAR', title: '外庭客座 · 规定',
+      floor: 4, hp: 840, speed: 46, damage: 19, xp: 190, color: '#6f8f6a',
+      desc: '外庭请来的第一位客人。墨绿旧中山装、裂了一片镜片的圆框眼镜，左手公文包右手教鞭。他开口便是译制腔，抬手便在空气里划出红色批注框。',
+      skills: [
+        { name: '点名三连', desc: '教鞭连点三次，每次在落点延迟弹出一枚点名弹。' },
+        { name: '格式审查', desc: '甩出扇形表格页，命中者被“格式错误”减速。' },
+        { name: '驳回印章', desc: '三个红批注框预警 2 秒后落下巨大“驳回”印。' }
+      ]
+    },
+    {
+      id: 'liu', name: '柳铁柱', en: 'LIU TIEZHU', title: '外庭客座 · 锻与诗',
+      floor: 4, hp: 860, speed: 50, damage: 20, xp: 195, color: '#b06a4c',
+      desc: '外庭请来的第二位客人。铁灰工装围裙、铁簪绾发，左手短铁锤右手焦孔诗稿。锻打时像一座会走路的炉子，吟诵时又慢得像在给学生改诗。',
+      skills: [
+        { name: '锻打三连', desc: '短距冲撞接锤击，第三下砸出震荡环。' },
+        { name: '飞锤回旋', desc: '掷出回旋铁锤，返程伤害更高。' },
+        { name: '铁砧诗稿', desc: '砸击铁砧，三道冲击波沿地面扩散。' }
+      ]
+    },
+    {
+      id: 'yuenu', name: '百越玉女', en: 'YUE MAIDEN', title: '外庭客座 · 鼓与瘴',
+      floor: 4, hp: 820, speed: 62, damage: 18, xp: 200, color: '#3fa7a0',
+      desc: '外庭请来的第三位客人。赤足铜铃、深青短衣绣羽人云雷纹，腰悬小铜鼓、颈挂残玉璧。她踏雾而来，鼓声一响，整座庭院的雨都跟着换方向。',
+      skills: [
+        { name: '铜鼓三震', desc: '三圈音波依次扩散，第三圈短暂眩晕。' },
+        { name: '白羽追踪', desc: '射出 3–5 枚慢速拐弯的白羽矢。' },
+        { name: '玉璧巫舞', desc: '举璧反弹正面远程；二阶段化入巫舞高速环射。' }
+      ]
+    },
+    {
+      id: 'creator', name: '创世者', en: 'THE CREATOR', title: '目录之外的执笔人',
+      floor: 5, hp: 1600, speed: 36, damage: 20, xp: 300, color: '#d6b06a',
+      desc: '第五层没有走廊，推门即巨书战场。半开线装书翻页成身，书脊缠锁链红绳，书页间伸出一只握朱笔的手，笔尖就是它的脸。它不审稿，它只决定谁被写进目录。',
+      skills: [
+        { name: '增 · 标点雨', desc: '逗号、句号、问号成雨落下；问号追踪，句号落地爆开。' },
+        { name: '删 · 删除线', desc: '横竖删除线延迟爆发，墨迹先在地面蔓延预警。' },
+        { name: '改 · 改写', desc: '飞行中的字块突然变色、分裂或追踪。' },
+        { name: '朱笔落款', desc: '三阶段连续三次批注圈，第三次范围最大。' }
       ]
     }
   ];
