@@ -1551,7 +1551,8 @@
       if (this.dead) return;
       this.char.drawWorld(ctx, game);
 
-      const walking = Math.abs(this.game.getMoveVector().x) + Math.abs(this.game.getMoveVector().y) > 0;
+      const mv = this.game.getMoveVector();
+      const walking = Math.abs(mv.x) + Math.abs(mv.y) > 0;
       const frame = walking ? (Math.floor(this.walkTime * 8) % 2) : 0;
       const bob = walking ? Math.sin(this.walkTime * 9) * 1.5 : Math.sin(this.time * 2.4) * 0.8;
       const blink = this.invuln > 0 && Math.floor(this.invuln * 16) % 2 === 0;
@@ -1617,6 +1618,33 @@
           ctx.stroke();
         }
         ctx.restore();
+      }
+
+      // 英雄轮廓强化：角色专属色的披帛/衣带随行走摆动，静止时轻轻呼气。
+      const accent = this.def.accent || this.def.color || PAL.gold;
+      const sway = Math.sin(this.time * 7.5) * 2.6 + (walking ? 2.2 : 0);
+      ctx.save();
+      ctx.globalAlpha = 0.72;
+      ctx.fillStyle = accent;
+      ctx.beginPath();
+      ctx.moveTo(this.x - this.facing * 7, this.y + bob - 7);
+      ctx.lineTo(this.x - this.facing * (21 + sway), this.y + bob - 1);
+      ctx.lineTo(this.x - this.facing * (18 + sway * 0.6), this.y + bob + 7);
+      ctx.lineTo(this.x - this.facing * 8, this.y + bob + 3);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+
+      // 移动残影：两层低透明度角色剪影，让英雄移动更有速度感。
+      if (walking) {
+        for (let i = 2; i >= 1; i--) {
+          ctx.save();
+          ctx.globalAlpha = 0.06 + i * 0.025;
+          Ink.Art.drawSprite(ctx, 'char:' + this.charId, this.x - mv.x * 7 * i, this.y + bob - mv.y * 4 * i, 3, {
+            frame, flip: this.facing < 0, tint: accent
+          });
+          ctx.restore();
+        }
       }
 
       Ink.Art.drawSprite(ctx, 'char:' + this.charId, this.x, this.y + bob, 3, {
