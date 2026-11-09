@@ -1867,19 +1867,30 @@
         }
         dot(ctx, x, y - 2, '#a33b3b');
       } else if (o.type === 'spike' || o.trap) {
-        // 地刺陷阱：暗铁底座 + 交错尖刺，周期明灭提示危险。
+        // 场地地刺：铁井 + 交错的伸缩尖刺 + 红色危险圈，不发射任何弹体。
         const pulse = 0.55 + Math.sin(time * 4.2 + x) * 0.25;
-        px(ctx, x - 18, y - 2, 36, 10, '#171118');
-        px(ctx, x - 15, y - 1, 30, 5, '#42363c');
-        for (let i = 0; i < 5; i++) {
-          const sx = x - 14 + i * 7;
-          px(ctx, sx, y - 12, 5, 12, '#0b080d');
-          px(ctx, sx + 1, y - 15, 3, 15, '#6f5c62');
-          px(ctx, sx + 2, y - 12, 1, 7, '#c7b6ab');
-        }
-        ctx.globalAlpha = pulse;
-        px(ctx, x - 17, y + 7, 34, 2, '#a33b3b');
+        const rise = Math.max(0, Math.sin(time * 3.2 + x * 0.05)) * 3;
+        ctx.globalAlpha = pulse * 0.65;
+        ctx.strokeStyle = '#a33b3b';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 4]);
+        ctx.beginPath();
+        ctx.arc(x, y + 3, 27, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
         ctx.globalAlpha = 1;
+        px(ctx, x - 24, y - 3, 48, 12, '#120d13');
+        px(ctx, x - 21, y - 1, 42, 7, '#4b3b42');
+        px(ctx, x - 19, y + 1, 38, 3, '#241b20');
+        for (let i = 0; i < 7; i++) {
+          const sx = x - 18 + i * 6;
+          const h = 15 + rise + (i % 2) * 3;
+          px(ctx, sx, y - h + 7, 4, h, '#0b080d');
+          px(ctx, sx + 1, y - h + 8, 2, h - 2, '#8d747c');
+          px(ctx, sx + 1, y - h + 8, 1, h - 8, '#e0d0c4');
+          dot(ctx, sx + 1, y - h + 7, '#fff1dd');
+        }
+        px(ctx, x - 21, y + 7, 42, 2, '#a33b3b');
       } else if (o.type === 'crate') {
         px(ctx, x - 14, y - 16, 28, 30, '#0b0806');
         px(ctx, x - 12, y - 14, 24, 26, '#8a5f36');

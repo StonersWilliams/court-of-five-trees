@@ -921,18 +921,7 @@
           continue;
         }
 
-        if (o.type === 'arrow') {
-          // 箭墙：每 2.2 秒朝玩家方向射一支短箭。
-          if (o.trapCd <= 0 && U.dist(p.x, p.y, o.x, o.y) < 420 && U.dist(p.x, p.y, o.x, o.y) > 34) {
-            o.trapCd = 2.2;
-            Ink.fire(this, {
-              x: o.x, y: o.y - 8, owner: 'enemy', angle: U.angleTo(o, p), speed: 300,
-              damage: 2, radius: 3, color: '#d8c7a0', visual: 'needle', life: 1.6
-            });
-            this.audio.sfx('shoot');
-          }
-          continue;
-        }
+        // 地刺/火口是场地陷阱，不会凭空发射飞行暗器。
 
         // 地刺：接触即扣 1 点生命并短暂减速。
         if (o.trapCd > 0) continue;
@@ -1649,6 +1638,11 @@
       }
       for (const pk of this.pickups) {
         if (!pk.dead) pk.draw(ctx, this);
+      }
+      // 场地陷阱独立画在地面层：它们不是可绕开的实体，也不参与 y 排序。
+      for (const o of this.obstacles) {
+        if (o.broken || !o.trap) continue;
+        Ink.Art.drawObstacle(ctx, o, this.time, theme);
       }
 
       // 实体按 y 排序，制造前后遮挡

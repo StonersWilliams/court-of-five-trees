@@ -919,7 +919,7 @@
       text(ctx, 'MIT License · 零依赖 · 程序化像素美术 / WebAudio 音效', 36, 580, {
         size: 9, color: 'rgba(109,99,136,.7)'
       });
-      text(ctx, 'v4.1.0', 924, 580, { size: 9, color: 'rgba(109,99,136,.7)', align: 'right' });
+      text(ctx, 'v4.1.1', 924, 580, { size: 9, color: 'rgba(109,99,136,.7)', align: 'right' });
     }
 
     // ── 角色选择 ──────────────────────────────────────────
@@ -948,7 +948,7 @@
         });
         ctx.fillStyle = d.color;
         ctx.fillRect(lx + 5, ry + 5, 4, rowH - 10);
-        Ink.Art.drawPortrait(ctx, d.id, lx + 30, ry + 23, 1.35, Math.floor(this.time * 2 + i) % 2);
+        Ink.Art.drawPortrait(ctx, d.id, lx + 30, ry + 23, 1.15, Math.floor(this.time * 2 + i) % 2);
         text(ctx, d.name, lx + 52, ry + 20, {
           size: 14, color: sel ? d.accent || PAL.gold : PAL.parchment, bold: true
         });
@@ -971,7 +971,7 @@
       // 大立绘
       ctx.fillStyle = U.rgba(def.color, .08);
       ctx.fillRect(dx + 18, dy + 18, 172, 190);
-      Ink.Art.drawPortrait(ctx, def.id, dx + 104, dy + 116, 5.0, Math.floor(this.time * 2) % 2);
+      Ink.Art.drawPortrait(ctx, def.id, dx + 104, dy + 116, 4.4, Math.floor(this.time * 2) % 2);
       text(ctx, def.name, dx + 210, dy + 54, {
         size: 34, color: def.accent || PAL.parchment, bold: true
       });
@@ -1048,7 +1048,7 @@
 
       // 头像
       const frame = Math.floor(this.time * 2 + index) % 2;
-      Ink.Art.drawPortrait(ctx, def.id, x + w / 2, y + 76, 3.4, frame);
+      Ink.Art.drawPortrait(ctx, def.id, x + w / 2, y + 76, 2.2, frame);
       text(ctx, '0' + (index + 1), x + 12, y + 22, { size: 10, color: PAL.muted, bold: true });
       if (selected) {
         text(ctx, '◆ 已选择', x + w - 10, y + 22, { size: 9, color: PAL.gold, align: 'right' });
