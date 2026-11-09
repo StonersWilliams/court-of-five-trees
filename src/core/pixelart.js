@@ -1841,6 +1841,31 @@
         px(ctx, x - 11, y - 44, 22, 4, '#a89a78');
         for (let i = 0; i < 4; i++) px(ctx, x - 7, y - 30 + i * 10, 14, 1, '#4a4136');
         dot(ctx, x, y - 44, theme ? theme.accent : PAL.gold);
+      } else if (o.type === 'flame') {
+        // 火焰喷口：铜制兽首 + 周期火舌。
+        const on = (time + o.x * 0.01) % 3.2 < 0.9;
+        px(ctx, x - 16, y - 4, 32, 10, '#171118');
+        px(ctx, x - 13, y - 14, 26, 12, '#5a3a2a');
+        px(ctx, x - 10, y - 12, 20, 8, '#b8733d');
+        px(ctx, x - 4, y - 10, 8, 4, '#2a1712');
+        if (on) {
+          for (let i = 0; i < 5; i++) {
+            const fx = x - 8 + i * 4;
+            px(ctx, fx, y - 24 - (i % 3) * 6, 3, 14 + (i % 3) * 4, i % 2 ? '#ffd36b' : '#ff8a4c');
+          }
+          ctx.globalAlpha = .35;
+          px(ctx, x - 18, y - 34, 36, 30, '#ff5c3c');
+          ctx.globalAlpha = 1;
+        }
+      } else if (o.type === 'arrow') {
+        // 箭墙：木架与三支待发的短箭。
+        px(ctx, x - 18, y - 18, 36, 24, '#171118');
+        px(ctx, x - 16, y - 16, 32, 20, '#5c3a2a');
+        for (let i = 0; i < 3; i++) {
+          px(ctx, x - 12 + i * 10, y - 20, 2, 16, '#c7b6ab');
+          px(ctx, x - 14 + i * 10, y - 20, 6, 2, '#ffd36b');
+        }
+        dot(ctx, x, y - 2, '#a33b3b');
       } else if (o.type === 'spike' || o.trap) {
         // 地刺陷阱：暗铁底座 + 交错尖刺，周期明灭提示危险。
         const pulse = 0.55 + Math.sin(time * 4.2 + x) * 0.25;

@@ -29,9 +29,10 @@
   };
 
   // 主动技能的能量消耗：辅助/召唤型略高，爆发型略低。
+  // 技能以冷却为主要门槛；能量只驱动武器，技能默认不耗能。
   const SKILL_ENERGY = {
-    qiyun: 8, xiaoying: 7, xinyue: 10, ziyu: 9,
-    smartdog: 10, mouse: 8, autumn: 11, sanrui: 12
+    qiyun: 0, xiaoying: 0, xinyue: 0, ziyu: 0,
+    smartdog: 0, mouse: 0, autumn: 0, sanrui: 0
   };
 
   // 手刀基础伤害：刺客/近战角色更痛，法师型较轻。
@@ -87,7 +88,7 @@
       this.handDamage = HAND_DAMAGE[charId] || 6;
       this.handRange = 58;
       this.preferMelee = false;
-      this.skillEnergyCost = SKILL_ENERGY[charId] || 8;
+      this.skillEnergyCost = SKILL_ENERGY[charId] ?? 0;
       this._prevMouseDown = false;
       this._handHeld = false;
       this.chargeTimer = 0;
@@ -142,6 +143,30 @@
       this.swift = false;
       this.swiftStacks = 0;
       this.swiftTimer = 0;
+      this.hitHeal = 0;
+      this.hitHealAcc = 0;
+      this.chain = false;
+      this.chainStacks = 0;
+      this.chainHits = 0;
+      this.thunder = false;
+      this.thunderStacks = 0;
+      this.thunderHits = 0;
+      this.slowAura = false;
+      this.slowAuraStacks = 0;
+      this.auraTick = 0;
+      this.energyOnKill = 0;
+
+      // 守门人遗物：不占武器槽，拾取即生效。
+      this.relics = {};
+      this.relicSlowResist = 0;
+      this.relicTrapResist = 0;
+      this.relicCrit = 0;
+      this.relicDamage = 0;
+      this.relicCdMult = 1;
+      this.relicSkillCost = 0;
+      this.relicEnergyGain = 0;
+      this.relicMeleeInk = false;
+      this.relicRangedResist = 0;
 
       // 第二批机制被动：复活、额外弹道、环刃、处决、裂墨、缓时、爆裂弹、饮血、鹰眼、纸甲。
       this.reviveCharges = 0;
@@ -307,6 +332,29 @@
       return true;
     }
 
+    addRelic(id) {
+      const def = Ink.Relics && Ink.Relics[id];
+      if (!def || this.relics[id]) return false;
+      this.relics[id] = true;
+      this.relicSlowResist = Math.min(0.8, this.relicSlowResist + (def.slowResist || 0));
+      this.relicTrapResist = Math.min(0.8, this.relicTrapResist + (def.trapResist || 0));
+      this.relicCrit += def.crit || 0;
+      this.relicDamage += def.damage || 0;
+      this.relicCdMult = Math.min(this.relicCdMult, def.cdMult || 1);
+      this.relicSkillCost += def.skillCost || 0;
+      this.relicEnergyGain += def.energyGain || 0;
+      this.relicMeleeInk = this.relicMeleeInk || !!def.meleeInk;
+      this.relicRangedResist = Math.min(0.5, this.relicRangedResist + (def.rangedResist || 0));
+      this.game.audio.sfx('levelup');
+      Ink.FX.text(this.game, '遗物 · ' + def.name, this.x, this.y - 46, def.color, 13, 1.4);
+      this.game.ui.showToast('拾得守门人遗物 ·「' + def.name + '」', def.color, 2.6);
+      return true;
+    }
+
+    hasRelic(id) {
+      return !!this.relics[id];
+    }
+
     addCoins(amount) {
       if (!amount) return;
       if (amount < 0) {
@@ -320,10 +368,11 @@
     }
 
     damageMultiplier() {
+      let mult = 1 + (this.relicDamage || 0);
       if (this.lastStand && this.hp < this.maxHp * 0.35) {
-        return Math.min(1.65, 1.3 + 0.1 * Math.max(0, this.lastStandStacks - 1));
+        mult *= Math.min(1.65, 1.3 + 0.1 * Math.max(0, this.lastStandStacks - 1));
       }
-      return 1;
+      return mult;
     }
 
     _weaponCooldown() {
@@ -339,6 +388,7 @@
 
     addEnergy(amount) {
       if (!amount) return;
+      if (amount > 0 && this.relicEnergyGain) amount += this.relicEnergyGain;
       const before = this.energy;
       this.energy = U.clamp(this.energy + amount, 0, this.maxEnergy);
       const gain = Math.round(this.energy - before);
@@ -561,7 +611,7 @@
 
     weaponShot(opts) {
       const def = opts.def || {};
-      const crit = Math.random() < this.critChance;
+      const crit = Math.random() < (this.critChance + this.relicCrit);
       const angle = this.aimAngle + (opts.angleOffset || 0);
       const px = this.x + Math.cos(angle) * 24;
       const py = this.y + Math.sin(angle) * 24 - 2;
@@ -895,6 +945,17 @@
     }
 
     updateWeaponHooks(dt) {
+      // 寒域：定期给身边敌人上短减速。
+      this.auraTick = Math.max(0, (this.auraTick || 0) - dt);
+      if (this.slowAura && this.auraTick <= 0) {
+        this.auraTick = 0.5;
+        const radius = 150 + 24 * Math.max(0, (this.slowAuraStacks || 1) - 1);
+        for (const e of this.game.enemies) {
+          if (e.dead || e.spawnTimer > 0) continue;
+          if (U.dist(this.x, this.y, e.x, e.y) > radius + e.radius) continue;
+          if (e.applySlow) e.applySlow(0.72, 0.7);
+        }
+      }
       this.guardTimer = Math.max(0, (this.guardTimer || 0) - dt);
       this.maskTimer = Math.max(0, this.maskTimer - dt);
       this.mirrorTimer = Math.max(0, this.mirrorTimer - dt);
@@ -983,6 +1044,31 @@
         const need = Math.max(4, 8 - (this.overchargeStacks - 1));
         if (this.overchargeHits % need === 0) this.chainLightning(enemy);
       }
+      // 饮墨：命中回血；连坐：每数次命中额外伤周围两人；雷殛：定时召连锁雷。
+      if (this.hitHeal > 0) {
+        this.hitHealAcc += this.hitHeal;
+        if (this.hitHealAcc >= 1) { const n = Math.floor(this.hitHealAcc); this.hitHealAcc -= n; this.heal(n); }
+      }
+      if (this.chain && enemy && !enemy.dead) {
+        this.chainHits++;
+        const need = Math.max(3, 5 - (this.chainStacks - 1));
+        if (this.chainHits % need === 0) {
+          let n = 0;
+          for (const e of this.game.enemies.slice()) {
+            if (n >= 2) break;
+            if (e.dead || e === enemy || e.spawnTimer > 0) continue;
+            if (U.dist(enemy.x, enemy.y, e.x, e.y) > 190) continue;
+            this.game.damageEnemy(e, Math.max(4, this.weapon.damage * 0.42), { source: 'passive', sourceKey: 'chain', color: '#c9a6ff' });
+            Ink.FX.beam(this.game, { x: enemy.x, y: enemy.y, angle: U.angleTo(enemy, e), length: Math.min(190, U.dist(enemy.x, enemy.y, e.x, e.y)), warn: 0, active: 0.18, color: '#c9a6ff', width: 2 });
+            n++;
+          }
+        }
+      }
+      if (this.thunder && enemy && !enemy.dead) {
+        this.thunderHits++;
+        const need = Math.max(4, 7 - (this.thunderStacks - 1));
+        if (this.thunderHits % need === 0) this.chainLightning(enemy);
+      }
       // 裂墨：命中后向左右裂出两发弱弹，带独立短冷却防止无限连锁。
       if (this.split && !opts._split && this.splitCd <= 0 && enemy && this.weapon) {
         this.splitCd = 0.32;
@@ -995,6 +1081,10 @@
           });
         }
         Ink.FX.text(this.game, '裂', enemy.x, enemy.y - 22, '#c9a6ff', 13, 0.55);
+      }
+      // 铁砧诗稿：近战命中额外附一层字印（字狱可借此叠层）。
+      if (this.relicMeleeInk && enemy.applyInkStack && this.weapon && this.weapon.melee) {
+        enemy.applyInkStack();
       }
       if (!enemy.dead && this.char.onBasicHit) this.char.onBasicHit(enemy, proj);
     }
@@ -1184,7 +1274,7 @@
 
     // ── 攻击 ──────────────────────────────────────────────
     fireBasic(opts) {
-      const crit = Math.random() < this.critChance;
+      const crit = Math.random() < (this.critChance + this.relicCrit);
       const mult = (opts.damageMult || 1) * (crit ? 1.65 : 1) * this.damageMultiplier();
       const angle = this.aimAngle + (opts.angleOffset || 0);
       const speed = opts.speed || 540;
@@ -1246,7 +1336,7 @@
       const angle = this.aimAngle + (opts.angleOffset || 0);
       const range = opts.range || 80;
       const arc = opts.arc || 1.4;
-      const critCount = Math.random() < this.critChance;
+      const critCount = Math.random() < (this.critChance + this.relicCrit);
       const dmg = this.damage * (opts.damageMult || 1) * (critCount ? 1.65 : 1) * this.damageMultiplier();
       Ink.FX.slash(this.game, {
         x: this.x, y: this.y, angle, range, arc,
@@ -1284,15 +1374,16 @@
         if (this.skillCd > 0) this.game.audio.sfx('uiBack');
         return false;
       }
-      if (this.energy < this.skillEnergyCost) {
+      const skillCost = Math.max(0, this.skillEnergyCost - (this.relicSkillCost || 0));
+      if (skillCost > 0 && this.energy < skillCost) {
         this._showEnergyToast('能量不足 · 技能无法发动');
         return false;
       }
       const ok = this.char.useSkill();
       if (ok) {
-        this.energy = Math.max(0, this.energy - this.skillEnergyCost);
+        this.energy = Math.max(0, this.energy - skillCost);
         const accent = this.def.accent || PAL.gold;
-        this.skillCd = this.skillCdMax;
+        this.skillCd = this.skillCdMax * (this.relicCdMult || 1);
         this.skillFlash = 0.55;
         this.game.addShake(3.2, 0.18);
         Ink.FX.ring(this.game, {
@@ -1343,12 +1434,19 @@
 
     applySlow(mult, duration) {
       if (this.maskTimer > 0) return;
+      // 守门人遗物可以削减减速时间；叠满时几乎免疫。
+      const d = duration * (1 - (this.relicSlowResist || 0));
+      if (d <= 0.02) return;
       this.slowMult = Math.min(this.slowMult, mult);
-      this.slowTimer = Math.max(this.slowTimer, duration);
+      this.slowTimer = Math.max(this.slowTimer, d);
     }
 
-    takeDamage(amount, source) {
+    takeDamage(amount, source, opts = {}) {
       if (this.dead || this.invuln > 0) return;
+      // 铜鼓玉璧：只减免敌方弹幕，不减免近战/范围。
+      if (opts.ranged && this.relicRangedResist > 0) {
+        amount *= (1 - this.relicRangedResist);
+      }
       // 纸甲：完全挡下一次伤害，然后进入冷却。
       if (this.paperShield && this.paperShieldCd <= 0) {
         this.paperShieldCd = Math.max(4, 9 - 1.5 * Math.max(0, this.paperShieldStacks - 1));
@@ -1442,6 +1540,7 @@
 
     /** 击杀回调：傩面延长变身，司南重新指向。 */
     onWeaponKill(enemy) {
+      if (this.energyOnKill > 0) this.addEnergy(this.energyOnKill);
       if (this.maskTimer > 0) this.maskTimer = Math.min(13, this.maskTimer + 1.2);
       if (enemy && this.compassTarget === enemy) this.compassTarget = null;
       if (this.armorOnKill > 0) this.addArmor(this.armorOnKill);

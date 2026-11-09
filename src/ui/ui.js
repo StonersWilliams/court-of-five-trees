@@ -721,10 +721,10 @@
         { t: '第一幕 · 奇树', s: '庭中有奇树，绿叶发华滋。镜湖的水面，倒映着一块石头。石上十六个字：精勤求学，敦笃励志，果毅力行，忠恕任事。' },
         { t: '第二幕 · 黄桷', s: '旁边一株黄桷树，树下一声旧铃。这里是西南交通大学。1896 年从山海关铁路官学堂起家，矿镐、水准仪、铁轨，刻在校徽上。' },
         { t: '第三幕 · 文脉', s: '中文系就长在这所工科学校的骨缝里——小而精，出特色，做藏彝走廊的语言，做巴蜀方言的千年考据，做“文工交融”的摆渡人。' },
-        { t: '第四幕 · 交通', s: '校歌里唱：“灌输文化尚交通。”这里的“交通”，是天地交而万物通。可如今，九道影子截断了河道。竢实扬华，自强不息。' },
+        { t: '第四幕 · 交通', s: '校歌里唱：“灌输文化尚交通。”这里的“交通”，是天地交而万物通。可如今，九庭轮值，三道外客，河道被层层纸页截断。竢实扬华，自强不息。' },
         { t: '第五幕 · 旧物', s: '庭中那棵奇树还在。石桌上摆着一局没下完的棋，砚台边搁着一支没蘸墨的笔，批卷的刀笔压在旧稿上，方言调查笔记旁搁着一双听音的耳朵，黄桷树下挂着一声没停的铃。' },
-        { t: '第六幕 · 三兽', s: '树根处有新鲜的土，树梢上还挂着昨夜的雨，树影里蹲着三头不出声的小兽。九庭未倒。' },
-        { t: '第七幕 · 稿纸', s: '稿纸在你手里。' }
+        { t: '第六幕 · 三客', s: '九庭轮值，三层不空。外庭三客，客随主便。第四层三选一，第五层，创世者等你翻页。' },
+        { t: '第七幕 · 稿纸', s: '树影里的小兽抬起头。稿纸在你手里。' }
       ];
       const idx = Math.min(6, this.game.introIndex || 0);
       const act = acts[idx];
@@ -887,7 +887,7 @@
       });
 
       const pulse = 0.55 + Math.sin(t * 2.4) * 0.18;
-      text(ctx, '五层 · 每层七关 · 十三守门人 · 四十九兵刃', 480, 330, {
+      text(ctx, '五层 · 每层七关 · 十三守门人 · 五十三兵刃', 480, 330, {
         size: 12, color: U.rgba(PAL.muted, pulse), align: 'center'
       });
 
@@ -919,7 +919,7 @@
       text(ctx, 'MIT License · 零依赖 · 程序化像素美术 / WebAudio 音效', 36, 580, {
         size: 9, color: 'rgba(109,99,136,.7)'
       });
-      text(ctx, 'v4.0.0', 924, 580, { size: 9, color: 'rgba(109,99,136,.7)', align: 'right' });
+      text(ctx, 'v4.1.0', 924, 580, { size: 9, color: 'rgba(109,99,136,.7)', align: 'right' });
     }
 
     // ── 角色选择 ──────────────────────────────────────────
@@ -1260,7 +1260,9 @@
 
     _drawPassiveRail(ctx) {
       const p = this.game.player;
-      if (!p || !p.passives || p.passives.length === 0) return;
+      if (!p) return;
+      const relicCount = Object.keys(p.relics || {}).length;
+      if ((!p.passives || p.passives.length === 0) && relicCount === 0) return;
       // 按获得顺序去重，双列展示，尽量把所有机缘放在左侧可检视。
       const ids = [];
       for (const id of p.passives) if (!ids.includes(id)) ids.push(id);
@@ -1269,7 +1271,7 @@
       const h = 26 + rows * 16;
       const x = 14, y = 100, w = 226, colW = 108;
       panel(ctx, x, y, w, h, { fill: 'rgba(8,6,14,.82)' });
-      text(ctx, '机 缘', x + 9, y + 14, { size: 9, color: PAL.gold, bold: true });
+      text(ctx, '机 缘 · 遗物 ' + relicCount, x + 9, y + 14, { size: 9, color: PAL.gold, bold: true });
       text(ctx, String(p.passives.length) + ' 层', x + w - 9, y + 14, {
         size: 8, color: PAL.muted, align: 'right'
       });
@@ -1498,11 +1500,12 @@
       }
 
       // 技能名 / 能量消耗
-      const energyReady = p.energy >= (p.skillEnergyCost || 0);
+      const skillCost = p.skillEnergyCost || 0;
+      const energyReady = skillCost <= 0 || p.energy >= skillCost;
       text(ctx, p.def.skillName, c.x, c.y + c.r + 18, {
         size: 9, color: ready ? PAL.parchment2 : 'rgba(207,192,157,.55)', align: 'center'
       });
-      text(ctx, '耗能 ' + (p.skillEnergyCost || 0) + (energyReady ? '' : ' · 不足'), c.x, c.y + c.r + 30, {
+      text(ctx, skillCost > 0 ? ('耗能 ' + skillCost + (energyReady ? '' : ' · 不足')) : '无耗能 · 冷却', c.x, c.y + c.r + 30, {
         size: 8, color: energyReady ? '#8fd6ff' : '#ff7d7d', align: 'center'
       });
       ctx.restore();

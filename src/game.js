@@ -37,7 +37,7 @@
       choices: [
         { label: '翻开夹页', desc: '研习旧帖：生命 +12、伤害 +5%、移速 +1.5%。', apply(g) { g.player.applyStatGrowth(); } },
         { label: '蘸墨补字', desc: '回复 35% 生命，获得 10 金币。', apply(g) { g.player.heal(g.player.maxHp * 0.35); g.player.addCoins(10); } },
-        { label: '把书合上', desc: '获得 3 点护甲。', apply(g) { g.player.addArmor(3); } }
+        { label: '把书合上', desc: '获得 3 点护盾。', apply(g) { g.player.addArmor(3); } }
       ]
     },
     rain: {
@@ -45,7 +45,7 @@
       text: '雨从庭外斜进来，廊下有一把无人认领的伞。',
       choices: [
         { label: '撑伞听雨', desc: '回复 25% 生命，获得 8 金币。', apply(g) { g.player.heal(g.player.maxHp * 0.25); g.player.addCoins(8); } },
-        { label: '冒雨前行', desc: '获得 4 点护甲。', apply(g) { g.player.addArmor(4); } },
+        { label: '冒雨前行', desc: '获得 4 点护盾。', apply(g) { g.player.addArmor(4); } },
         { label: '拾起伞骨', desc: '随机获得一把兵器。', apply(g) { g.grantRandomWeapon(); } }
       ]
     },
@@ -100,20 +100,22 @@
   //  掉落物：经验墨晶 / 生命残片 / 金币 / 武器
   // ═══════════════════════════════════════════════════════════
   class Pickup {
-    constructor(game, x, y, value, kind = 'xp', weaponId = null) {
+    constructor(game, x, y, value, kind = 'xp', weaponId = null, relicId = null) {
       this.game = game;
       this.x = x;
       this.y = y;
       this.value = value;
       this.kind = kind;
       this.weaponId = weaponId;
+      this.relicId = relicId;
       this.vx = U.rand(-120, 120);
       this.vy = U.rand(-150, -40);
-      this.life = 32;
-      this.maxLife = 32;
-      this.radius = kind === 'heart' ? 8 : kind === 'weapon' ? 14 : kind === 'coin' ? 7 : kind === 'energy' ? 7 : 6;
+      // 金币不参与即时拾取：每关结算时统一飞入；能量仍可当场拾取。
+      this.life = kind === 'coin' ? 999 : 32;
+      this.maxLife = kind === 'coin' ? 999 : 32;
+      this.radius = kind === 'heart' ? 8 : kind === 'weapon' ? 14 : kind === 'relic' ? 13 : kind === 'coin' ? 7 : kind === 'energy' ? 7 : 6;
       this.armTimer = kind === 'weapon' ? 0.9 : 0;
-      this.noMagnet = false;
+      this.noMagnet = kind === 'coin';
       this.dead = false;
       this.time = U.rand(0, 6);
     }
@@ -144,8 +146,9 @@
       this.vx *= drag;
       this.vy *= drag;
 
-      const pickR = this.kind === 'weapon' ? 34 : 24;
-      if (d < pickR && this.armTimer <= 0) {
+      const pickR = (this.kind === 'weapon' || this.kind === 'relic') ? 34 : 24;
+      // 金币要等本关结束结算，不能战斗中途拾取；能量/经验/武器照常即时拾取。
+      if (d < pickR && this.armTimer <= 0 && this.kind !== 'coin') {
         this.dead = true;
         if (this.kind === 'heart') {
           p.heal(this.value);
@@ -158,6 +161,8 @@
         } else if (this.kind === 'weapon') {
           // 换枪：旧武器自动落在脚边，玩家可以反悔捡回。
           p.equipWeapon(this.weaponId, { dropCurrent: true });
+        } else if (this.kind === 'relic') {
+          p.addRelic(this.relicId);
         } else {
           p.gainXp(this.value);
         }
@@ -216,6 +221,24 @@
         ctx.fillRect(this.x - 5, this.y - 2 + bob, 10, 4);
         ctx.fillStyle = '#dff6ff';
         ctx.fillRect(this.x - 1, this.y - 3 + bob, 2, 6);
+        ctx.restore();
+      } else if (this.kind === 'relic') {
+        const bob = Math.sin(this.time * 3) * 3;
+        const def = Ink.Relics && Ink.Relics[this.relicId];
+        const col = def ? def.color : '#e8c170';
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = U.rgba ? U.rgba(col, 0.18) : 'rgba(232,193,112,.18)';
+        ctx.beginPath();
+        ctx.arc(this.x, this.y + bob, 17 + Math.sin(this.time * 4) * 3, 0, U.TAU);
+        ctx.fill();
+        ctx.strokeStyle = col;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y + bob, 9, 0, U.TAU);
+        ctx.stroke();
+        ctx.fillStyle = col;
+        ctx.fillRect(this.x - 3, this.y - 3 + bob, 6, 6);
         ctx.restore();
       } else if (this.kind === 'weapon') {
         const bob = Math.sin(this.time * 3) * 3;
@@ -574,7 +597,7 @@
       if (!room || room.type !== 'prep' || room.prepared) return;
       this.prepChoices = [
         { id: 'heal', name: '焚香调息', desc: '回复 32% 最大生命，准备迎战。' },
-        { id: 'armor', name: '研墨护心', desc: '获得 8 点护甲，抵挡第一轮伤害。' },
+        { id: 'armor', name: '研墨护心', desc: '获得 8 点护盾，抵挡第一轮伤害。' },
         { id: 'coins', name: '清点盘缠', desc: '获得 15 枚金币，留给下一间行商。' }
       ];
       this.prepNotice = this.floorData.name + '。先整备，再推门。';
@@ -628,6 +651,7 @@
       this.dungeon.markCleared(this.floorData, this.room);
       this.runStats.rooms++;
       this.runStats.stages++;
+      this.collectCoins();
       if (this.runStats.stages % 5 === 0) {
         this.passivePending++;
         this.ui.showToast('五关已过 · 机缘将至', '#e8c170', 2.0);
@@ -874,10 +898,47 @@
       for (const o of this.obstacles) {
         if (!o.trap) continue;
         o.trapCd = Math.max(0, (o.trapCd || 0) - dt);
+        o.trapCycle = ((o.trapCycle || 0) + dt) % 3.2;
+
+        if (o.type === 'flame') {
+          // 火焰喷口：每 3.2 秒喷 0.9 秒，站在火柱里会持续掉血。
+          if (o.trapCycle < 0.9) {
+            if (U.dist(p.x, p.y, o.x, o.y) < o.r + p.radius * 0.6) {
+              if (o.trapCd <= 0) {
+                o.trapCd = 0.45;
+                if (Math.random() >= (p.relicTrapResist || 0)) p.takeDamage(1, o);
+                if (p.applyBurn) p.applyBurn(0.8, 2);
+                p.applySlow(0.75, 0.5);
+                FX.burst(this, p.x, p.y - 8, '#ff8a4c', 5, 65, { size: 2, glow: true });
+                this.audio.sfx('hit');
+              }
+            }
+            FX.particle(this, {
+              x: o.x + U.rand(-8, 8), y: o.y + 4, vx: U.rand(-12, 12), vy: -U.rand(35, 90),
+              color: Math.random() < .5 ? '#ff8a4c' : '#ffd36b', size: 2, life: .45, glow: true
+            });
+          }
+          continue;
+        }
+
+        if (o.type === 'arrow') {
+          // 箭墙：每 2.2 秒朝玩家方向射一支短箭。
+          if (o.trapCd <= 0 && U.dist(p.x, p.y, o.x, o.y) < 420 && U.dist(p.x, p.y, o.x, o.y) > 34) {
+            o.trapCd = 2.2;
+            Ink.fire(this, {
+              x: o.x, y: o.y - 8, owner: 'enemy', angle: U.angleTo(o, p), speed: 300,
+              damage: 2, radius: 3, color: '#d8c7a0', visual: 'needle', life: 1.6
+            });
+            this.audio.sfx('shoot');
+          }
+          continue;
+        }
+
+        // 地刺：接触即扣 1 点生命并短暂减速。
         if (o.trapCd > 0) continue;
         if (U.dist(p.x, p.y, o.x, o.y) > o.r + p.radius * 0.7) continue;
         o.trapCd = 1.1;
-        p.takeDamage(1, o);
+        if (Math.random() >= (p.relicTrapResist || 0)) p.takeDamage(1, o);
         p.applySlow(0.55, 0.7);
         FX.burst(this, o.x, o.y, '#c7b6ab', 8, 80, { size: 2 });
         this.audio.sfx('hit');
@@ -1233,6 +1294,7 @@
       room.cleared = true;
       this.dungeon.markCleared(this.floorData, room);
       this.runStats.rooms++;
+      this.collectCoins();
       this.audio.sfx('door');
       this.player.invuln = Math.max(this.player.invuln, 0.5);
       FX.ring(this, {
@@ -1325,7 +1387,7 @@
       return final;
     }
 
-    damagePlayer(amount, source) {
+    damagePlayer(amount, source, opts = {}) {
       const p = this.player;
       if (!p || p.dead || p.invuln > 0) return;
 
@@ -1344,7 +1406,7 @@
         if (absorbed > 0) amount -= absorbed;
       }
       if (amount <= 0) return;
-      p.takeDamage(amount, source);
+      p.takeDamage(amount, source, opts);
     }
 
     onEnemyKilled(enemy, opts = {}) {
@@ -1369,13 +1431,13 @@
           });
         }
       }
-      if (this.player) this.player.addEnergy(opts.boss ? 24 : 2);
+      if (this.player) this.player.addEnergy(opts.boss ? 24 : 4);
       if (opts.boss) {
         this.dropCoin(enemy.x, enemy.y, 24);
-        for (let i = 0; i < 3; i++) this.dropEnergy(enemy.x + U.rand(-24, 24), enemy.y + U.rand(-20, 20), 8);
+        for (let i = 0; i < 5; i++) this.dropEnergy(enemy.x + U.rand(-30, 30), enemy.y + U.rand(-24, 24), 8);
       } else {
         if (Math.random() < 0.72) this.dropCoin(enemy.x, enemy.y, U.randInt(1, 2));
-        if (Math.random() < 0.18) this.dropEnergy(enemy.x, enemy.y, 8);
+        if (Math.random() < (enemy.elite ? 0.7 : 0.35)) this.dropEnergy(enemy.x, enemy.y, 8);
       }
       if (enemy.elite || opts.boss) {
         if (Math.random() < (opts.boss ? 1 : 0.35)) {
@@ -1400,7 +1462,7 @@
 
     onDogBroken() {
       if (this.player && this.player.char.onDogBroken) this.player.char.onDogBroken();
-      this.ui.showToast('影犬被击破 · 护甲回响', '#cbb1ff', 1.6);
+      this.ui.showToast('影犬被击破 · 护盾回响', '#cbb1ff', 1.6);
     }
 
     onBossDefeated(boss) {
@@ -1408,6 +1470,7 @@
       this.room.cleared = true;
       this.room.clearTimer = 0;
       this.dungeon.markCleared(this.floorData, this.room);
+      this.collectCoins();
       this.runStats.bosses++;
       this.runStats.rooms++;
       this.runStats.stages++;
@@ -1435,6 +1498,13 @@
         FX.text(this, '庭主遗物', boss.x, boss.y - 58, bossWeapon.color, 15, 2.0);
         FX.ring(this, { x: boss.x, y: boss.y, r0: 8, r1: 90, life: 0.7, color: bossWeapon.color, width: 2 });
         this.ui.showToast('庭主遗物 ·「' + bossWeapon.name + '」已掉落', bossWeapon.color, 3.0);
+      }
+      if (boss && Ink.RelicForBoss && this.floorData && this.floorData.bossId) {
+        const relic = Ink.RelicForBoss(this.floorData.bossId);
+        if (relic) {
+          this.dropRelic(relic.id, boss.x + 34, boss.y + 8);
+          FX.text(this, '抗性遗物', boss.x + 34, boss.y - 30, relic.color, 13, 1.8);
+        }
       }
 
       this.portal = {
@@ -1468,6 +1538,18 @@
       this.pickups.push(new Pickup(this, x + U.rand(-8, 8), y + U.rand(-8, 8), value, 'heart'));
     }
 
+    /** 关卡结束统一结算金币：把场上金币一次收进钱袋。 */
+    collectCoins() {
+      const coins = this.pickups.filter((pk) => pk.kind === 'coin' && !pk.dead);
+      if (!coins.length) return 0;
+      let total = 0;
+      for (const pk of coins) { total += pk.value; pk.dead = true; }
+      if (total > 0 && this.player) this.player.addCoins(total);
+      FX.text(this, '关卡结算 · 金币 +' + total, this.player ? this.player.x : 480, 300, '#ffd36b', 16, 1.4);
+      this.audio.sfx('pickup');
+      return total;
+    }
+
     dropCoin(x, y, value = 1) {
       if (value <= 0) return;
       const n = value >= 8 ? 4 : value >= 4 ? 3 : 2;
@@ -1478,6 +1560,20 @@
         if (v <= 0) continue;
         this.pickups.push(new Pickup(this, x + U.rand(-12, 12), y + U.rand(-10, 10), v, 'coin'));
       }
+    }
+
+    /** 守门人遗物：不占武器槽，落地后走近拾取。 */
+    dropRelic(id, x, y) {
+      const def = Ink.Relics && Ink.Relics[id];
+      if (!def) return null;
+      const A = Ink.ARENA;
+      const px = U.clamp(x, A.x + 24, A.x + A.w - 24);
+      const py = U.clamp(y, A.y + 24, A.y + A.h - 24);
+      const pk = new Pickup(this, px, py, 0, 'relic', null, id);
+      pk.life = 999;
+      pk.noMagnet = true;
+      this.pickups.push(pk);
+      return pk;
     }
 
     /** 能量球：每颗回复 8 点，不受磁吸加成影响。 */
