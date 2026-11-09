@@ -60,16 +60,22 @@
     _pickTarget() {
       let best = null;
       let bestD = 1e9;
+      // 兜底：若所有敌人都被别的犬锁定（例如只剩一只），允许全群集火。
+      let fallback = null;
+      let fallbackD = 1e9;
       const pack = this.game.dogs || [];
       for (const e of this.game.enemies) {
         if (e.dead || e.spawnTimer > 0) continue;
-        // 犬群尽量分散目标：别的犬已经锁定的敌人，优先级降低。
-        const claimed = pack.some(d => d !== this && d.alive && d._target === e);
-        if (claimed) continue;
         const d = U.dist(this.x, this.y, e.x, e.y);
+        const claimed = pack.some(dog => dog !== this && dog.alive && dog._target === e);
+        if (claimed) {
+          if (d < fallbackD) { fallbackD = d; fallback = e; }
+          continue;
+        }
+        // 优先分散：在别的犬没锁定的敌人中选最近的。
         if (d < bestD) { bestD = d; best = e; }
       }
-      this._target = best;
+      this._target = best || fallback;
     }
 
     update(dt) {

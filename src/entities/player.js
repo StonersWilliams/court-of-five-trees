@@ -1640,20 +1640,20 @@
         for (let i = 2; i >= 1; i--) {
           ctx.save();
           ctx.globalAlpha = 0.06 + i * 0.025;
-          Ink.Art.drawSprite(ctx, 'char:' + this.charId, this.x - mv.x * 7 * i, this.y + bob - mv.y * 4 * i, 3, {
+          Ink.Art.drawSprite(ctx, 'char:' + this.charId, this.x - mv.x * 7 * i, this.y + bob - mv.y * 4 * i, 2.2, {
             frame, flip: this.facing < 0, tint: accent
           });
           ctx.restore();
         }
       }
 
-      Ink.Art.drawSprite(ctx, 'char:' + this.charId, this.x, this.y + bob, 3, {
+      Ink.Art.drawSprite(ctx, 'char:' + this.charId, this.x, this.y + bob, 2.2, {
         frame,
         flip: this.facing < 0,
         alpha: blink ? 0.55 : 1
       });
       if (this.hitFlash > 0) {
-        Ink.Art.drawSprite(ctx, 'char:' + this.charId, this.x, this.y + bob, 3, {
+        Ink.Art.drawSprite(ctx, 'char:' + this.charId, this.x, this.y + bob, 2.2, {
           frame, flip: this.facing < 0, alpha: 0.5, tint: '#ffffff'
         });
       }
@@ -1661,8 +1661,9 @@
       // 手持武器实体：跟随手部、朝准星旋转，开火时后坐 + 枪口火光
       if (this.weapon && this.weapon.id !== 'fists') {
         // 武器挂在手部：沿瞄准方向伸出手臂，避免整把枪压在角色身体里。
-        const handX = this.x + Math.cos(this.aimAngle) * 16 + this.facing * 3;
-        const handY = this.y + bob + 4 + Math.sin(this.aimAngle) * 10;
+        // 手部略偏身体一侧：即使朝正上/正下瞄准，武器也不会整把糊在脸上。
+        const handX = this.x + this.facing * 17 + Math.cos(this.aimAngle) * 6;
+        const handY = this.y + bob + 3 + Math.sin(this.aimAngle) * 11;
         ctx.save();
         ctx.globalAlpha = 0.20;
         ctx.fillStyle = this.weapon.color || '#e8c170';
