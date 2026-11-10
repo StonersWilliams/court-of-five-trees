@@ -610,7 +610,7 @@
       });
       text(ctx, '兵 刃 图 鉴', 64, 60, { size: 24, color: PAL.parchment, bold: true });
       text(ctx, 'WEAPON CODEX', 230, 62, { size: 10, color: PAL.gold, bold: true });
-      text(ctx, '五十四柄兵刃 · 刀笔剑戟，各有各的脾气。', 64, 80, { size: 9, color: PAL.muted });
+      text(ctx, '六十二柄兵刃 · 刀笔剑戟，各有各的脾气。', 64, 80, { size: 9, color: PAL.muted });
 
       const pageList = list.slice(this.weaponCodexPage * 9, this.weaponCodexPage * 9 + 9);
       for (let i = 0; i < pageList.length; i++) {
@@ -1166,7 +1166,7 @@
       });
 
       const pulse = 0.55 + Math.sin(t * 2.4) * 0.18;
-      text(ctx, '五层 · 每层七关 · 十三守门人 · 五十四兵刃', 480, 330, {
+      text(ctx, '五层 · 每层七关 · 十三守门人 · 六十二兵刃', 480, 330, {
         size: 12, color: U.rgba(PAL.muted, pulse), align: 'center'
       });
 
@@ -1206,7 +1206,7 @@
       text(ctx, 'MIT License · 零依赖 · 程序化像素美术 / WebAudio 音效', 36, 594, {
         size: 8, color: 'rgba(109,99,136,.7)'
       });
-      text(ctx, 'v5.0.1', 924, 580, { size: 9, color: 'rgba(109,99,136,.7)', align: 'right' });
+      text(ctx, 'v5.1.0', 924, 580, { size: 9, color: 'rgba(109,99,136,.7)', align: 'right' });
     }
 
     // ── 角色选择 ──────────────────────────────────────────

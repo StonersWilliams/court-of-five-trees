@@ -990,6 +990,119 @@
           }
           break;
 
+        case 'reap':
+          // 青柳鞭：第三下把周围敌人缠向自己。
+          if (n % 3 === 0) {
+            for (const e of this.game.enemies.slice()) {
+              if (e.dead || U.dist(this.x, this.y, e.x, e.y) > 235 + e.radius) continue;
+              const a = U.angleTo(e, this);
+              e.x += Math.cos(a) * 70;
+              e.y += Math.sin(a) * 70;
+              e.applySlow && e.applySlow(0.62, 1.4);
+              this.game.damageEnemy(e, def.damage * 0.5, { source: 'weapon', sourceKey: def.id, color: def.color });
+              Ink.FX.beam(this.game, {
+                x: e.x, y: e.y, angle: a, length: 70, warn: 0, active: 0.16,
+                damage: 0, color: def.color, width: 3
+              });
+            }
+            ring(this.x, this.y, 150, def.color, 3);
+            Ink.FX.text(this.game, '缠枝', this.x, this.y - 40, def.color, 15, 0.65);
+          }
+          break;
+
+        case 'quake':
+          if (n % 4 === 0) {
+            aoe(this.x, this.y, 170, 1.7, stun);
+            ring(this.x, this.y, 170, def.color, 5);
+            this.game.addShake(7, 0.25);
+            Ink.FX.text(this.game, '断碑·震岳', this.x, this.y - 44, def.color, 16, 0.8);
+          }
+          break;
+
+        case 'pull':
+          if (n % 4 === 0) {
+            let pulled = 0;
+            for (const e of this.game.enemies.slice()) {
+              if (e.dead || U.dist(this.x, this.y, e.x, e.y) > 265 + e.radius) continue;
+              const a = U.angleTo(e, this);
+              e.x += Math.cos(a) * 90;
+              e.y += Math.sin(a) * 90;
+              e.applySlow && e.applySlow(0.6, 1.2);
+              this.game.damageEnemy(e, def.damage * 0.7, { source: 'weapon', sourceKey: def.id, color: def.color });
+              Ink.FX.beam(this.game, {
+                x: e.x, y: e.y, angle: a, length: 90, warn: 0, active: 0.14,
+                damage: 0, color: '#b58cff', width: 3
+              });
+              pulled++;
+            }
+            if (pulled) {
+              ring(this.x, this.y, 120, '#b58cff', 3);
+              Ink.FX.text(this.game, '钩魂 ×' + pulled, this.x, this.y - 40, '#b58cff', 14, 0.65);
+            }
+          }
+          break;
+
+        case 'flurry':
+          if (n % 3 === 0) {
+            for (let i = 0; i < 3; i++) {
+              const d = 42 + i * 36;
+              aoe(this.x + Math.cos(this.aimAngle) * d, this.y + Math.sin(this.aimAngle) * d,
+                44, 0.55, slow);
+            }
+            Ink.FX.slash(this.game, {
+              x: this.x, y: this.y, angle: this.aimAngle, radius: 118,
+              arc: 2.2, life: 0.22, color: def.color
+            });
+            ring(this.x, this.y, 104, def.color, 2);
+            this.game.audio.sfx('slash');
+          }
+          break;
+
+        case 'dragon':
+          // 龙息铳：完美蓄力追加一次爆炎，并点燃周围敌人。
+          if (this.chargePower >= 1.8) {
+            const x = this.x + Math.cos(this.aimAngle) * 92;
+            const y = this.y + Math.sin(this.aimAngle) * 92;
+            aoe(x, y, 92, 1.2, (e) => e.applyBurn && e.applyBurn(2.2, 4.5));
+            ring(x, y, 96, '#ff8a4c', 5);
+            this.game.addShake(5, 0.18);
+            Ink.FX.text(this.game, '龙息·爆', x, y - 28, '#ff8a4c', 15, 0.75);
+          }
+          break;
+
+        case 'frostbeam':
+          if (this.chargePower >= 1.45) {
+            const x = this.x + Math.cos(this.aimAngle) * 140;
+            const y = this.y + Math.sin(this.aimAngle) * 140;
+            aoe(x, y, 74, 0.8, (e) => e.applySlow && e.applySlow(0.45, 2.2));
+            ring(x, y, 74, '#9fd8ff', 4);
+            Ink.FX.text(this.game, '霜线', x, y - 24, '#9fd8ff', 14, 0.6);
+          }
+          break;
+
+        case 'volley':
+          if (this.chargePower >= 1.4) {
+            for (let i = -1; i <= 1; i++) {
+              this.weaponShot({
+                def, angleOffset: i * 0.24, speed: 900, radius: 5, life: 1.1,
+                damage: def.damage * 0.65, visual: 'needle', color: def.color, pierce: 2
+              });
+            }
+            Ink.FX.text(this.game, '惊蛰·三矢', this.x, this.y - 40, def.color, 14, 0.6);
+          }
+          break;
+
+        case 'nova':
+          if (this.chargePower >= 1.5) {
+            const x = this.x + Math.cos(this.aimAngle) * 70;
+            const y = this.y + Math.sin(this.aimAngle) * 70;
+            aoe(x, y, 118, 1.15, stun);
+            ring(x, y, 118, '#ffd36b', 5);
+            this.game.addShake(4, 0.18);
+            Ink.FX.text(this.game, '日珥', x, y - 30, '#ffd36b', 15, 0.7);
+          }
+          break;
+
         case 'golden':
           // 黄金台不是输出武器：轻点只放出一点收束金光，核心是 R 吟唱收宠。
           ring(this.x + Math.cos(this.aimAngle) * 40, this.y + Math.sin(this.aimAngle) * 40, 24, '#ffd36b', 1.5);

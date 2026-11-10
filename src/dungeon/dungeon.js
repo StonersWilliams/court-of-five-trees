@@ -526,11 +526,13 @@
         ];
       }
       if (room.type === 'event') {
-        // 事件房留出中央空场，只在两侧放一点叙事道具。
-        return [
+        // 事件房也保留少量场地危险，但不堵住中央对话区。
+        const out = [
           this._obstacle('stone', 250, 220, 0, 15),
           this._obstacle('crate', 760, 440, 1, 14)
         ];
+        this._scatterTraps(out, room, floorIndex, rng, 3 + Math.min(2, Math.floor(floorIndex / 2)));
+        return out;
       }
       if (room.type === 'prep') {
         // 准备房：两盏灯、两只箱，中央保持空旷。
@@ -572,7 +574,7 @@
       if (layouts[room.layout]) {
         const out = layouts[room.layout]();
         // 固定骨架也补足散落地刺，避免陷阱永远只长在房间正中心。
-        this._scatterTraps(out, room, floorIndex, rng, 2 + Math.min(2, Math.floor(floorIndex / 2)));
+        this._scatterTraps(out, room, floorIndex, rng, 7 + Math.min(3, Math.floor(floorIndex / 2)));
         return out;
       }
 
@@ -604,7 +606,7 @@
         const type = roll < 0.5 ? 'tree' : roll < 0.72 ? 'pillar' : roll < 0.9 ? 'crate' : 'stone';
         out.push(this._obstacle(type, x, y, rng.int(0, 4), type === 'tree' ? 19 : type === 'pillar' ? 15 : 13));
       }
-      this._scatterTraps(out, room, floorIndex, rng, 3 + Math.min(2, Math.floor(floorIndex / 2)));
+      this._scatterTraps(out, room, floorIndex, rng, 8 + Math.min(3, Math.floor(floorIndex / 2)));
       return out;
     }
 
@@ -632,7 +634,7 @@
           if (U.dist(x, y, s.x, s.y) < 58) { ok = false; break; }
         }
         if (!ok) continue;
-        const type = rng.chance(0.62) ? 'spike' : 'flame';
+        const type = rng.chance(0.72) ? 'spike' : 'flame';
         out.push(this._obstacle(type, x, y, rng.int(0, 3), 18));
         added++;
       }

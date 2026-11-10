@@ -266,6 +266,69 @@
       chargeAuto: true, chargeSlow: 0.45,
       desc: '钟楼旧槌。满蓄自动砸地，震退周围敌人并扫落弹幕；蓄力时移速明显降低。'
     },
+    willow_whip: {
+      id: 'willow_whip', name: '青柳鞭', rarity: 'rare', price: 26,
+      color: '#9ed08a', shape: 'staff', icon: 'staff', cooldown: 0.5,
+      damage: 18, range: 195, shots: 1, spread: 0, speed: 760, radius: 6, life: 0.5,
+      knockback: 38, melee: true, arc: 2.3, clearShots: true, special: 'reap',
+      desc: '柔软柳枝削成的长鞭。大扇形抽击并扫落弹幕；每第三下把周围敌人缠向自己。'
+    },
+    stone_tablet: {
+      id: 'stone_tablet', name: '断碑', rarity: 'epic', price: 44,
+      color: '#b9b2a2', shape: 'hammer', icon: 'bomb', cooldown: 1.1, chargeTime: 1.1,
+      damage: 58, range: 180, shots: 1, spread: 0, speed: 680, radius: 10, life: 0.6,
+      knockback: 150, melee: true, arc: 1.85, clearShots: true, charged: true,
+      chargeAuto: true, chargeSlow: 0.38, special: 'quake',
+      desc: '半截石碑改成的重锤。满蓄自动砸地，震晕大范围敌人并扫落弹幕；蓄力时移速大幅降低。'
+    },
+    hook_sickle: {
+      id: 'hook_sickle', name: '钩魂镰', rarity: 'rare', price: 30,
+      color: '#b58cff', shape: 'blade', icon: 'blade', cooldown: 0.62,
+      damage: 27, range: 175, shots: 1, spread: 0, speed: 760, radius: 6, life: 0.55,
+      knockback: 55, melee: true, arc: 1.85, clearShots: true, special: 'pull',
+      desc: '带倒钩的短镰。横扫扫落弹幕；每第四下把远处敌人钩到身前并造成额外伤害。'
+    },
+    twin_shortswords: {
+      id: 'twin_shortswords', name: '双锋', rarity: 'epic', price: 40,
+      color: '#ff9b7a', shape: 'blade', icon: 'blade', cooldown: 0.34,
+      damage: 14, range: 150, shots: 1, spread: 0, speed: 800, radius: 5, life: 0.45,
+      knockback: 30, melee: true, arc: 2.4, clearShots: true, special: 'flurry',
+      desc: '一长一短两柄薄刃。极快的双段扇斩；每第三下追加三段残影斩。'
+    },
+    dragon_breath: {
+      id: 'dragon_breath', name: '龙息铳', rarity: 'epic', price: 48,
+      color: '#ff8a4c', shape: 'gun', icon: 'gun', cooldown: 1.15, chargeTime: 1.35,
+      damage: 56, range: 600, shots: 1, spread: 0, speed: 760, radius: 9, life: 1.2,
+      knockback: 50, charged: true, chargeAuto: false, chargeSlow: 0.4,
+      chargePerfect: [0.62, 0.82], chargePerfectMult: 2.3, explode: 74, explodeMult: 0.8,
+      special: 'dragon', trail: true,
+      desc: '以龙息墨为弹的重铳。蓄力越久爆炎越大；完美区间释放时追加一次龙息爆炸并点燃。'
+    },
+    frost_lance: {
+      id: 'frost_lance', name: '霜脊枪', rarity: 'epic', price: 46,
+      color: '#9fd8ff', shape: 'staff', icon: 'staff', cooldown: 1.0, chargeTime: 1.2,
+      damage: 50, range: 620, shots: 1, spread: 0, speed: 980, radius: 7, life: 1.4,
+      pierce: 8, charged: true, chargeAuto: false, chargeSlow: 0.5,
+      chargePerfect: [0.58, 0.76], chargePerfectMult: 2.1, special: 'frostbeam',
+      trail: true,
+      desc: '霜铁长枪。蓄力后投出贯穿冰线；完美区间释放时沿枪线爆出霜环，冻结并减速敌人。'
+    },
+    storm_bow: {
+      id: 'storm_bow', name: '惊蛰弓', rarity: 'rare', price: 32,
+      color: '#cbb1ff', shape: 'bow', icon: 'bow', cooldown: 0.95, chargeTime: 0.95,
+      damage: 32, range: 600, shots: 1, spread: 0, speed: 900, radius: 6, life: 1.2,
+      charged: true, chargeAuto: true, chargeSlow: 0.55, special: 'volley',
+      trail: true,
+      desc: '弓弦会随雷声震鸣。满蓄自动放出一支雷箭；蓄力后额外分出三支扇形箭。'
+    },
+    sun_disc: {
+      id: 'sun_disc', name: '日轮盘', rarity: 'epic', price: 50,
+      color: '#ffd36b', shape: 'orb', icon: 'orb', cooldown: 1.05, chargeTime: 1.25,
+      damage: 44, range: 560, shots: 1, spread: 0, speed: 620, radius: 8, life: 1.2,
+      charged: true, chargeAuto: true, chargeSlow: 0.45, special: 'nova',
+      glow: true,
+      desc: '一轮缩小的日盘。满蓄自动放出灼热光轮；蓄力后光轮落地时炸出日珥环并眩晕敌人。'
+    },
     golden_altar: {
       id: 'golden_altar', name: '黄金台', rarity: 'epic', price: 56,
       color: '#ffd36b', shape: 'staff', icon: 'staff', cooldown: 0.8,
