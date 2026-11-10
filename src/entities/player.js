@@ -81,6 +81,8 @@
       // 能量：武器与主动技能共用；不自然恢复，靠能量球/击杀/事件补充。
       this.maxEnergy = 60;
       this.energy = this.maxEnergy;
+      // 战斗中缓慢回能：每 2.5 秒 +1，避免长时间空能量只能站着。
+      this.energyRegenTimer = 0;
       this.energyCost = 0;
       this.lowEnergyCd = 0;
       // 手刀：无消耗的备用近战，按输入触发；不依赖近战武器。
@@ -108,12 +110,17 @@
 
       // ── 武器 / 局内资源 / 机制被动 ──────────────────────
       this.weaponId = STARTING_WEAPON[charId] || 'flintlock';
+      // 双武器槽：默认 2 格，可通过「藏书夹」类被动再扩 1 格。
+      this.weaponSlots = [this.weaponId, null];
+      this.weaponSlot = 0;
+      this.maxWeaponSlots = 2;
       this.weaponCd = 0;
       this.weaponCdMax = this.weapon ? this.weapon.cooldown : 1;
       this.weaponRecoil = 0;
       this.weaponFlash = 0;
       this.skillFlash = 0;
       this.coins = 0;
+      this.tools = { wand: 0, review: 0 };
       this.passives = [];
       this.passiveStacks = {};
       this.bonusBounce = 0;
@@ -263,7 +270,23 @@
     equipWeapon(id, opts = {}) {
       const def = Ink.WeaponDefs && Ink.WeaponDefs[id];
       if (!def) return false;
-      const oldId = this.weaponId;
+      let slot = Number.isInteger(opts.slot) ? opts.slot : -1;
+      if (slot < 0) {
+        const existing = this.weaponSlots.indexOf(id);
+        if (existing >= 0) {
+          slot = existing;
+        } else if (opts.pickup) {
+          // 拾取时优先填满空槽；两把都满才替换当前槽。
+          const empty = this.weaponSlots.findIndex((w, i) => i < this.maxWeaponSlots && (!w || w === 'fists'));
+          slot = empty >= 0 ? empty : this.weaponSlot;
+        } else {
+          slot = this.weaponSlot;
+        }
+      }
+      if (slot < 0 || slot >= this.maxWeaponSlots) slot = 0;
+      const oldId = this.weaponSlots[slot];
+      this.weaponSlots[slot] = id;
+      this.weaponSlot = slot;
       this.weaponId = id;
       this.weaponCdMax = def.cooldown;
       this.weaponCd = Math.min(this.weaponCd, 0.18);
@@ -272,7 +295,7 @@
       this.chargeTimer = 0;
       this.chargePower = 1;
 
-      if (opts.dropCurrent && oldId && oldId !== id && !opts.silent) {
+      if (opts.dropCurrent && oldId && oldId !== id && oldId !== 'fists' && !opts.silent) {
         // 旧枪落在身后 66px，避免刚换枪就被自动捡回。
         this.dropWeaponAt(
           oldId,
@@ -281,11 +304,38 @@
           false
         );
       }
+      this.syncPetWeapon();
       if (!opts.silent && this.game && this.game.ui) {
         this.game.ui.showToast('装备 · ' + def.name, def.color || '#e8c170', 2.0);
       }
       if (this.game && this.game.audio) this.game.audio.sfx('skillReady');
       return true;
+    }
+
+    hasWeapon(id) {
+      return this.weaponId === id || (this.weaponSlots || []).includes(id);
+    }
+
+    /** Q / 触屏槽位：在两把武器之间切换。 */
+    switchWeapon() {
+      if (!this.weaponSlots || this.maxWeaponSlots < 2) return false;
+      for (let i = 1; i <= this.maxWeaponSlots; i++) {
+        const idx = (this.weaponSlot + i) % this.maxWeaponSlots;
+        const id = this.weaponSlots[idx];
+        if (id && id !== 'fists') {
+          this.equipWeapon(id, { slot: idx, silent: true });
+          if (this.game && this.game.ui) this.game.ui.showToast('换兵 · ' + this.weapon.name, this.weapon.color, 1.2);
+          return true;
+        }
+      }
+      return false;
+    }
+
+    /** 黄金台离手时，所有由它收服的宠物立即散去。 */
+    syncPetWeapon() {
+      if (this.game && this.game.clearPets && !this.hasWeapon('golden_altar')) {
+        this.game.clearPets();
+      }
     }
 
     /** 把指定武器作为地面掉落物放到场景里。 */
@@ -305,11 +355,20 @@
         this.y + Math.sin(this.aimAngle) * 66,
         false
       );
-      this.weaponId = 'fists';
-      this.weaponCdMax = 0.45;
-      this.weaponCd = 0.2;
+      // 清空当前槽；若另一把还在，自动切过去，否则空手。
+      this.weaponSlots[this.weaponSlot] = null;
+      const other = this.weaponSlots.findIndex((w, i) => i !== this.weaponSlot && w && w !== 'fists');
+      if (other >= 0) {
+        this.equipWeapon(this.weaponSlots[other], { slot: other, silent: true });
+      } else {
+        this.weaponId = 'fists';
+        this.weaponSlots[this.weaponSlot] = 'fists';
+        this.weaponCdMax = 0.45;
+        this.weaponCd = 0.2;
+      }
+      this.syncPetWeapon();
       if (this.game && this.game.ui) {
-        this.game.ui.showToast('已丢下兵刃 · 空手作战', '#ffb35c', 1.6);
+        this.game.ui.showToast(other >= 0 ? '已丢下兵刃 · 换持另一把' : '已丢下兵刃 · 空手作战', '#ffb35c', 1.6);
       }
       return true;
     }
@@ -931,6 +990,11 @@
           }
           break;
 
+        case 'golden':
+          // 黄金台不是输出武器：轻点只放出一点收束金光，核心是 R 吟唱收宠。
+          ring(this.x + Math.cos(this.aimAngle) * 40, this.y + Math.sin(this.aimAngle) * 40, 24, '#ffd36b', 1.5);
+          break;
+
         default:
           // 庭主遗物：每第四发打出一次大范围余波
           if (def.bossOnly && n % 4 === 0) {
@@ -1178,6 +1242,18 @@
         this.armor = Math.min(this.maxArmor, this.armor + 1.0 * dt);
       }
 
+      // 战斗中回能：有存活敌人才计数，每 2.5 秒 +1。
+      const inCombat = this.game.enemies && this.game.enemies.some((e) => !e.dead && e.spawnTimer <= 0);
+      if (inCombat && this.energy < this.maxEnergy) {
+        this.energyRegenTimer += dt;
+        while (this.energyRegenTimer >= 2.5 && this.energy < this.maxEnergy) {
+          this.energyRegenTimer -= 2.5;
+          this.energy += 1;
+        }
+      } else {
+        this.energyRegenTimer = 0;
+      }
+
       // 主动技能输入（桌面空格 / 右键；触屏由 game 设置 skillRequest）
       if (this.game.skillRequest) {
         this.game.skillRequest = false;
@@ -1186,6 +1262,7 @@
       const input = this.game.input;
       if (input.wasPressed('Space', 'KeyE')) this.tryUseSkill();
       if (input.wasPressed('KeyG')) this.dropWeapon();
+      if (input.wasPressed('KeyQ')) this.switchWeapon();
       const rightNow = input.mouse.right;
       if (rightNow && !this._prevRight) this.tryUseSkill();
       this._prevRight = rightNow;
@@ -1197,6 +1274,7 @@
         * (this.speedBoostTimer > 0 ? 1.25 : 1)
         * (this.swiftTimer > 0 ? Math.min(1.55, 1.25 + 0.06 * Math.max(0, this.swiftStacks - 1)) : 1)
         * (this.maskTimer > 0 ? 1.15 : 1)
+        * (this.captureSlow || 1)
         * (this.chargeTimer > 0 ? (this.weapon.chargeSlow || 0.58) : 1)
         * (this.slowTimer > 0 && this.maskTimer <= 0 ? this.slowMult : 1);
       if (mv.x !== 0 || mv.y !== 0) {
@@ -1505,6 +1583,19 @@
         this.game.audio.sfx('levelup');
         return;
       }
+      if (this.hp <= 0 && this.deathWard) {
+        // 替页：每局一次，撕掉致命的一页，回到 35% 生命。
+        this.deathWard = false;
+        this.hp = Math.max(1, Math.round(this.maxHp * 0.35));
+        this.invuln = 2.0;
+        Ink.FX.burst(this.game, this.x, this.y, ['#fff6dc', '#e8c170', '#ffffff'], 42, 220, {
+          size: 4, glow: true, lifeMult: 1.6
+        });
+        Ink.FX.text(this.game, '替页 · 免死', this.x, this.y - 48, '#ffe6a8', 18, 1.4);
+        this.game.addShake(8, 0.45);
+        this.game.audio.sfx('levelup');
+        return;
+      }
       if (this.hp <= 0) this.die();
     }
 
@@ -1617,6 +1708,29 @@
           ctx.arc(this.x, this.y - 2, 34, 0, U.TAU);
           ctx.stroke();
         }
+        ctx.restore();
+
+        // 角色头顶的蓄力条：长按左键时出现；金线是完美区间。
+        const bx = this.x - 24;
+        const by = this.y - 56 + bob;
+        ctx.save();
+        ctx.fillStyle = 'rgba(5,4,10,.82)';
+        ctx.fillRect(bx - 2, by - 2, 52, 10);
+        ctx.fillStyle = 'rgba(232,193,112,.22)';
+        ctx.fillRect(bx, by, 48, 6);
+        const grad = ctx.createLinearGradient(bx, 0, bx + 48, 0);
+        grad.addColorStop(0, '#8fd6ff');
+        grad.addColorStop(1, '#ffe6a8');
+        ctx.fillStyle = grad;
+        ctx.fillRect(bx, by, 48 * k, 6);
+        if (this.weapon.chargePerfect) {
+          const [lo, hi] = this.weapon.chargePerfect;
+          ctx.fillStyle = 'rgba(255,246,220,.9)';
+          ctx.fillRect(bx + 48 * lo, by - 1, Math.max(1, 48 * (hi - lo)), 8);
+        }
+        ctx.strokeStyle = 'rgba(232,193,112,.6)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(bx - 0.5, by - 0.5, 49, 7);
         ctx.restore();
       }
 

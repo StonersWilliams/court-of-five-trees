@@ -265,6 +265,13 @@
       knockback: 130, melee: true, arc: 1.95, clearShots: true, charged: true,
       chargeAuto: true, chargeSlow: 0.45,
       desc: '钟楼旧槌。满蓄自动砸地，震退周围敌人并扫落弹幕；蓄力时移速明显降低。'
+    },
+    golden_altar: {
+      id: 'golden_altar', name: '黄金台', rarity: 'epic', price: 56,
+      color: '#ffd36b', shape: 'staff', icon: 'staff', cooldown: 0.8,
+      damage: 8, range: 280, shots: 1, spread: 0, speed: 520, radius: 6, life: 0.8,
+      special: 'golden', glow: true,
+      desc: '一座袖珍黄金台。场上只剩一种怪物时，按 R 吟唱收服一只为宠物；宠物会自行作战。失去黄金台，所有宠物散去。'
     }
   };
 

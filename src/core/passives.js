@@ -183,6 +183,24 @@
       id: 'paperShield', name: '纸甲', color: '#e8dfc2',
       desc: '每 9 秒获得一层纸甲，完全挡下一次伤害。\n每层缩短冷却。',
       apply(p) { p.paperShield = true; p.paperShieldStacks = (p.paperShieldStacks || 0) + 1; }
+    },
+    caddy: {
+      id: 'caddy', name: '书箧', color: '#d9a35c',
+      desc: '多带一把兵刃，武器槽 +1（最多 4 格）。',
+      apply(p) {
+        p.maxWeaponSlots = Math.min(4, (p.maxWeaponSlots || 2) + 1);
+        while (p.weaponSlots.length < p.maxWeaponSlots) p.weaponSlots.push(null);
+      }
+    },
+    deathWard: {
+      id: 'deathWard', name: '替页', color: '#ffe6a8',
+      desc: '第一次致命伤时撕掉这一页：免死并回到 35% 生命，每局一次。',
+      apply(p) { p.deathWard = true; }
+    },
+    petBond: {
+      id: 'petBond', name: '兽缘', color: '#8ef0c8',
+      desc: '黄金台收服的宠物生命与伤害 +40%，\n宠物复活更快。',
+      apply(p) { p.petBond = true; }
     }
   };
 
