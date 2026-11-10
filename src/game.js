@@ -537,6 +537,14 @@
     }
 
     /** 新手试炼：安全准备房 + 三只不会反击的木桩，方便熟悉移动、开火、技能与收服。 */
+    /** 新手试炼结束：回到标题，不进入正式地牢。 */
+    finishTutorial() {
+      if (!this.tutorialMode) return;
+      this.tutorialMode = false;
+      this.toTitle();
+      this.ui.showToast('新手试炼完成 · 随时可以正式入庭', '#8fd6ff', 2.6);
+    }
+
     startTutorial() {
       this.startRun('qiyun');
       if (this.state === 'prep') this.choosePrep('heal');
@@ -546,9 +554,9 @@
       this.player.armor = this.player.maxArmor;
       const room = this.room;
       if (room) {
-        room.cleared = true;
+        // 试炼房要等木桩全部清空，才能触发 checkRoomClear 的完成分支。
+        room.cleared = false;
         room.enemiesSpawned = true;
-        this.dungeon.markCleared(this.floorData, room);
       }
       this.enemies = [];
       const types = ['slime', 'skull', 'guard'];
@@ -1528,6 +1536,12 @@
         this.ui.showClearBanner('第 ' + (next + 1) + ' 波', '不要松懈，门仍然锁着', '#ffb35c');
         FX.ring(this, { x: 480, y: 334, r0: 20, r1: 260, life: 0.65, color: '#ffb35c', width: 2 });
         this.audio.sfx('boss');
+        return;
+      }
+
+      // 新手试炼：木桩清空即结束，不把玩家送进正式地牢。
+      if (this.tutorialMode) {
+        this.finishTutorial();
         return;
       }
 
