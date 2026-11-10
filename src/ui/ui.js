@@ -827,6 +827,12 @@
     // ── 触屏操作 ──────────────────────────────────────────
     _handlePlayingPointer(e) {
       if (e.pointerType === 'mouse') {
+        // 行商交谈：鼠标与触屏共用同一块热区。
+        if (e.type === 'down' && this.game.shopReady &&
+            e.x > 608 && e.x < 686 && e.y > 548 && e.y < 576) {
+          this.game.shopTalkRequest = true;
+          return;
+        }
         // 桌面端也允许点击右上角暂停按钮（其余鼠标操作交给战斗输入）。
         if (e.type === 'down' && e.x > 690 && e.x < 728 && e.y > 10 && e.y < 48) {
           this.game.togglePause();
@@ -837,6 +843,11 @@
       const p = this.skillCenter;
 
       if (e.type === 'down') {
+        // 行商交谈（触屏）。
+        if (this.game.shopReady && e.x > 608 && e.x < 686 && e.y > 548 && e.y < 576) {
+          this.game.shopTalkRequest = true;
+          return;
+        }
         // 黄金台：触屏收服键。
         const cr = this.captureRect;
         if (cr && e.x >= cr.x && e.x <= cr.x + cr.w && e.y >= cr.y && e.y <= cr.y + cr.h) {
@@ -1195,7 +1206,7 @@
       text(ctx, 'MIT License · 零依赖 · 程序化像素美术 / WebAudio 音效', 36, 594, {
         size: 8, color: 'rgba(109,99,136,.7)'
       });
-      text(ctx, 'v5.0.0', 924, 580, { size: 9, color: 'rgba(109,99,136,.7)', align: 'right' });
+      text(ctx, 'v5.0.1', 924, 580, { size: 9, color: 'rgba(109,99,136,.7)', align: 'right' });
     }
 
     // ── 角色选择 ──────────────────────────────────────────
@@ -1454,6 +1465,14 @@
 
       // 武器 / 金币
       this._drawWeaponCard(ctx);
+
+      // 行商交谈：商店房靠近柜台时出现，鼠标/触屏共用同一热区。
+      if (game.shopReady && game.state === 'playing') {
+        this._button(ctx, { x: 608, y: 548, w: 78, h: 28 }, '交 谈', {
+          size: 11,
+          onClick: () => { game.shopTalkRequest = true; }
+        });
+      }
 
       // 已获得的机制被动（左侧检视栏）
       this._drawPassiveRail(ctx);

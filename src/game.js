@@ -346,6 +346,9 @@
       this.shopOffers = [];
       this.shopTools = [];
       this.shopNotice = '';
+      this.shopReady = false;
+      this.shopTalkRequest = false;
+      this.shopMerchant = null;
       this.runStats = { floor: 1, kills: 0, rooms: 0, stages: 0, time: 0, bosses: 0, fragments: 0, trueNames: 0, seals: 0 };
 
       this.shake = 0;
@@ -511,6 +514,9 @@
       this.shopOffers = [];
       this.shopTools = [];
       this.shopNotice = '';
+      this.shopReady = false;
+      this.shopTalkRequest = false;
+      this.shopMerchant = null;
       this.runStats = { floor: 1, kills: 0, rooms: 0, stages: 0, time: 0, bosses: 0, fragments: 0, trueNames: 0, seals: 0 };
       this.touchMove = { x: 0, y: 0 };
       this.skillRequest = false;
@@ -766,10 +772,15 @@
       if (!this.floorData.shopTools) {
         this.floorData.shopTools = SHOP_TOOLS.map((t) => ({ ...t, sold: false }));
       }
+      if (!this.shopMerchant) this.shopMerchant = Math.random() < 0.5 ? 'senior' : 'seniora';
       this.shopOffers = this.floorData.shopOffers;
       this.shopTools = this.floorData.shopTools;
-      this.shopTab = 'weapon';
-      this.shopNotice = '学长的兵刃，学姐的工具。金币或生命，各取所需。';
+      this.shopTab = this.shopMerchant === 'seniora' ? 'tool' : 'weapon';
+      this.shopReady = false;
+      this.shopTalkRequest = false;
+      this.shopNotice = this.shopMerchant === 'seniora'
+        ? '学姐把工具摊开：唤兽、存档、补能，挑一样。'
+        : '学长把兵刃一字排开：先看手感，再谈价钱。';
       this.state = 'shop';
       this.touchMove = { x: 0, y: 0 };
       this.skillRequest = false;
@@ -892,6 +903,7 @@
     closeShop() {
       if (this.state !== 'shop') return;
       this.state = 'playing';
+      this.shopReady = true;
       this.audio.sfx('uiBack');
     }
 
@@ -1072,6 +1084,8 @@
       this.afterTimers = [];
       this.boss = null;
       this.portal = null;
+      this.shopReady = false;
+      this.shopMerchant = null;
       this.captureTimer = 0;
       this.captureUsed = false;
       this.captureTarget = null;
@@ -1117,7 +1131,14 @@
       this.audio.setScene(target.type === 'boss' && !target.cleared ? 'boss' : 'play');
 
       if (target.type === 'shop') {
-        this.openShop();
+        // 商店不再一进门就弹面板：先让玩家看见房间正中的行商，再按 E / 点“交谈”。
+        if (!target.merchant) target.merchant = Math.random() < 0.5 ? 'senior' : 'seniora';
+        this.shopMerchant = target.merchant;
+        this.shopReady = true;
+        p.x = 480;
+        p.y = 506;
+        p.aimAngle = -Math.PI / 2;
+        this.ui.showToast((target.merchant === 'seniora' ? '学姐' : '学长') + '在柜台后等你 · 按 E 交谈', '#e8c170', 2.2);
         return;
       }
       if (target.type === 'prep' && !target.prepared) {
@@ -1365,6 +1386,16 @@
         this.updateShake(dt);
         return;
       }
+
+      // 商店房：行商站在正中，靠近后按 E / 点“交谈”才开柜台。
+      if (this.shopReady && this.room && this.room.type === 'shop' &&
+          (this.input.wasPressed('KeyE', 'Enter') || this.shopTalkRequest) &&
+          U.dist(this.player.x, this.player.y, 480, 332) < 190) {
+        this.shopTalkRequest = false;
+        this.openShop();
+        return;
+      }
+      this.shopTalkRequest = false;
 
       if (this.passivePending > 0) {
         // 队列式：每消耗一次机缘才减一，保证“五关+Boss”连给时不会被吞掉。
@@ -1920,6 +1951,24 @@
       }
       for (const pk of this.pickups) {
         if (!pk.dead) pk.draw(ctx, this);
+      }
+
+      // 行商房：柜台与随机出现的学长/学姐，固定站在房间正中。
+      if (room.type === 'shop' && this.shopMerchant && Ink.MerchantArt) {
+        Ink.MerchantArt.drawStall(ctx, 480, 352, this.shopMerchant, this.time);
+        Ink.MerchantArt.draw(ctx, this.shopMerchant, 480, 338, 2.9, this.time);
+        if (this.shopReady && this.state === 'playing') {
+          ctx.save();
+          ctx.fillStyle = 'rgba(10,8,18,.82)';
+          ctx.fillRect(404, 390, 152, 22);
+          ctx.strokeStyle = 'rgba(232,193,112,.65)';
+          ctx.strokeRect(404.5, 390.5, 151, 21);
+          ctx.fillStyle = '#e8c170';
+          ctx.font = 'bold 10px "Microsoft YaHei", sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText('按 E 与' + (this.shopMerchant === 'seniora' ? '学姐' : '学长') + '交谈', 480, 405);
+          ctx.restore();
+        }
       }
       // 场地陷阱独立画在地面层：它们不是可绕开的实体，也不参与 y 排序。
       for (const o of this.obstacles) {
