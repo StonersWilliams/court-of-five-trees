@@ -569,7 +569,12 @@
           this._obstacle('spike', 480, 330, 0, 20)
         ]
       };
-      if (layouts[room.layout]) return layouts[room.layout]();
+      if (layouts[room.layout]) {
+        const out = layouts[room.layout]();
+        // 固定骨架也补足散落地刺，避免陷阱永远只长在房间正中心。
+        this._scatterTraps(out, room, floorIndex, rng, 2 + Math.min(2, Math.floor(floorIndex / 2)));
+        return out;
+      }
 
       const A = Ink.ARENA;
       const count = 2 + floorIndex + rng.int(0, 2);
@@ -599,11 +604,38 @@
         const type = roll < 0.5 ? 'tree' : roll < 0.72 ? 'pillar' : roll < 0.9 ? 'crate' : 'stone';
         out.push(this._obstacle(type, x, y, rng.int(0, 4), type === 'tree' ? 19 : type === 'pillar' ? 15 : 13));
       }
-      if (rng.chance(0.35)) {
-        // 地面陷阱固定为地刺/火口，不再生成会飞出暗器的箭墙。
-        out.push(this._obstacle(rng.pick(['spike', 'flame']), 480, 330, 0, 20));
-      }
+      this._scatterTraps(out, room, floorIndex, rng, 3 + Math.min(2, Math.floor(floorIndex / 2)));
       return out;
+    }
+
+    /**
+     * 在空地上撒 2–5 个固定场地陷阱。
+     * 避开门口、刷怪点与已有障碍，让地刺分布在房间各处而不是只占中心。
+     */
+    _scatterTraps(out, room, floorIndex, rng, count) {
+      const A = Ink.ARENA;
+      const doors = Object.values(Ink.DOOR_POINTS);
+      let added = 0;
+      for (let tries = 0; tries < 160 && added < count; tries++) {
+        const x = A.x + 90 + rng() * (A.w - 180);
+        const y = A.y + 80 + rng() * (A.h - 160);
+        let ok = true;
+        for (const dp of doors) {
+          if (U.dist(x, y, dp.x, dp.y) < 105) { ok = false; break; }
+        }
+        if (!ok) continue;
+        for (const o of out) {
+          if (U.dist(x, y, o.x, o.y) < (o.r || 14) + 30) { ok = false; break; }
+        }
+        if (!ok) continue;
+        for (const s of room.spawnPlan) {
+          if (U.dist(x, y, s.x, s.y) < 58) { ok = false; break; }
+        }
+        if (!ok) continue;
+        const type = rng.chance(0.62) ? 'spike' : 'flame';
+        out.push(this._obstacle(type, x, y, rng.int(0, 3), 18));
+        added++;
+      }
     }
 
     /** Boss 的展示名，给 UI / 过场用。 */

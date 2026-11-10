@@ -29,6 +29,29 @@
     prep: '入庭准备'
   };
 
+  // 特性型被动：三选一时占两席，让“机制”压过纯数值。
+  const TRAIT_PASSIVES = [
+    'caddy', 'deathWard', 'petBond', 'phoenix', 'multishot', 'orbit', 'execute',
+    'split', 'auraSlow', 'bombShot', 'bloodlust', 'deadeye', 'paperShield',
+    'vampire', 'chain', 'thunder', 'slowAura', 'bounty', 'siphon'
+  ];
+
+  // 学姐摊位：一次性工具。学长只卖武器。
+  const SHOP_TOOLS = [
+    {
+      id: 'summon_wand', name: '唤兽法棒', price: 34, color: '#8ef0c8',
+      desc: '按 F 使用，召来一只随机庭兽；一次性消耗。'
+    },
+    {
+      id: 'review_notes', name: '复习资料', price: 28, color: '#ffd36b',
+      desc: '按 T 手动存档；死亡时从存档点复活。一次性消耗。'
+    },
+    {
+      id: 'energy_flask', name: '墨能小瓶', price: 18, color: '#8fd6ff',
+      desc: '立刻回复 30 点能量。'
+    }
+  ];
+
   // 随机事件：每层第 5 关。每个事件固定三选一，奖励是即时、可见的。
   const EVENT_DEFS = {
     inkwell: {
@@ -160,7 +183,7 @@
           p.addEnergy(this.value);
         } else if (this.kind === 'weapon') {
           // 换枪：旧武器自动落在脚边，玩家可以反悔捡回。
-          p.equipWeapon(this.weaponId, { dropCurrent: true });
+          p.equipWeapon(this.weaponId, { pickup: true, dropCurrent: true });
         } else if (this.kind === 'relic') {
           p.addRelic(this.relicId);
         } else {
@@ -321,12 +344,19 @@
       this.endingChoices = [];
       this.endingResult = null;
       this.shopOffers = [];
+      this.shopTools = [];
       this.shopNotice = '';
       this.runStats = { floor: 1, kills: 0, rooms: 0, stages: 0, time: 0, bosses: 0, fragments: 0, trueNames: 0, seals: 0 };
 
       this.shake = 0;
       this.shakeTime = 0;
       this.shakeDur = 0.2;
+
+      this.pets = [];
+      this.captureTimer = 0;
+      this.captureUsed = false;
+      this.captureNotice = '';
+      this.savePoint = null;
 
       this.audio.setScene('title');
       this.input.onFirstGesture = () => this.audio.unlock();
@@ -375,6 +405,8 @@
       this.player = null;
       this.dog = null;
       this.dogs = [];
+      this.pets = [];
+      this.captureTimer = 0;
       this.boss = null;
       this.room = null;
       this.floorData = null;
@@ -397,6 +429,7 @@
       this.endingChoices = [];
       this.endingResult = null;
       this.shopOffers = [];
+      this.shopTools = [];
       this.touchMove = { x: 0, y: 0 };
       this.skillRequest = false;
       this.audio.setScene('title');
@@ -412,6 +445,8 @@
       this.player = null;
       this.dog = null;
       this.dogs = [];
+      this.pets = [];
+      this.captureTimer = 0;
       this.boss = null;
       this.room = null;
       this.floorData = null;
@@ -435,6 +470,12 @@
     startRun(charId) {
       if (!Ink.Characters[charId]) charId = 'qiyun';
       this.lastCharId = charId;
+      this.tutorialMode = false;
+      this.pets = [];
+      this.captureTimer = 0;
+      this.captureUsed = false;
+      this.captureNotice = '';
+      this.savePoint = null;
       this.input.reset();
       this.audio.unlock();
 
@@ -468,6 +509,7 @@
       this.endingChoices = [];
       this.endingResult = null;
       this.shopOffers = [];
+      this.shopTools = [];
       this.shopNotice = '';
       this.runStats = { floor: 1, kills: 0, rooms: 0, stages: 0, time: 0, bosses: 0, fragments: 0, trueNames: 0, seals: 0 };
       this.touchMove = { x: 0, y: 0 };
@@ -494,6 +536,31 @@
       this.startRun(this.lastCharId || (this.player && this.player.charId) || 'qiyun');
     }
 
+    /** 新手试炼：安全准备房 + 三只不会反击的木桩，方便熟悉移动、开火、技能与收服。 */
+    startTutorial() {
+      this.startRun('qiyun');
+      if (this.state === 'prep') this.choosePrep('heal');
+      this.tutorialMode = true;
+      this.player.invuln = 9999;
+      this.player.hp = this.player.maxHp;
+      this.player.armor = this.player.maxArmor;
+      const room = this.room;
+      if (room) {
+        room.cleared = true;
+        room.enemiesSpawned = true;
+        this.dungeon.markCleared(this.floorData, room);
+      }
+      this.enemies = [];
+      const types = ['slime', 'skull', 'guard'];
+      for (let i = 0; i < types.length; i++) {
+        const d = Ink.spawnEnemy(this, types[i], 650 + i * 62, 205 + (i % 2) * 95, { spawnTimer: 0, floor: 1 });
+        d.maxHp = 999; d.hp = 999; d.damage = 0; d.ai = 'none';
+        d.update = function () { this.time += 0.016; this.hitFlash = Math.max(0, this.hitFlash - 0.016); };
+      }
+      this.ui.showClearBanner('新手试炼', '移动 · 开火 · 技能 · 收服 · 换武器', '#8fd6ff');
+      this.ui.showToast('试炼木桩不会反击，放心熟悉操作', '#8fd6ff', 2.4);
+    }
+
     togglePause() {
       if (this.transition) return;
       if (this.state === 'playing') {
@@ -517,6 +584,8 @@
 
     onPlayerDeath() {
       if (this.state === 'gameover' || this.state === 'victory') return;
+      // 复习资料：一次性存档，死亡时从存档点回到房间，不结算。
+      if (this.savePoint && this.reviveFromSave()) return;
       this.state = 'gameover';
       this.runStats.floor = this.floor;
       this.audio.setScene('silent');
@@ -553,8 +622,21 @@
     // ── 机制被动三选一（每层第 2 关后） ─────────────────
     openPassive() {
       if (!this.player) return;
-      // 被动允许重复叠加：池子永远不空，不会因“都拿过了”卡住三选一。
-      this.passiveChoices = U.shuffle(Ink.PassiveList.slice()).slice(0, 3);
+      // 被动允许重复叠加：池子永远不空。
+      // 特性型被动占两席，第三席从剩余池中补；数值型被动被稀释。
+      const all = U.shuffle(Ink.PassiveList.slice());
+      const traits = all.filter((id) => TRAIT_PASSIVES.includes(id));
+      const rest = all.filter((id) => !TRAIT_PASSIVES.includes(id));
+      const picks = [];
+      for (const id of traits) {
+        if (picks.length >= 2) break;
+        picks.push(id);
+      }
+      for (const id of rest.concat(traits)) {
+        if (picks.length >= 3) break;
+        if (!picks.includes(id)) picks.push(id);
+      }
+      this.passiveChoices = picks.slice(0, 3);
       this.state = 'passive';
       this.touchMove = { x: 0, y: 0 };
       this.skillRequest = false;
@@ -673,8 +755,13 @@
           sold: false
         }));
       }
+      if (!this.floorData.shopTools) {
+        this.floorData.shopTools = SHOP_TOOLS.map((t) => ({ ...t, sold: false }));
+      }
       this.shopOffers = this.floorData.shopOffers;
-      this.shopNotice = '金币或生命，都可以换一把趁手的兵刃。';
+      this.shopTools = this.floorData.shopTools;
+      this.shopTab = 'weapon';
+      this.shopNotice = '学长的兵刃，学姐的工具。金币或生命，各取所需。';
       this.state = 'shop';
       this.touchMove = { x: 0, y: 0 };
       this.skillRequest = false;
@@ -695,7 +782,7 @@
         }
         p.hp -= hpCost;
         offer.sold = true;
-        p.equipWeapon(offer.id, { dropCurrent: true });
+        p.equipWeapon(offer.id, { pickup: true, dropCurrent: true });
         this.shopNotice = '以 ' + hpCost + ' 点生命换来武器。';
       } else {
         if (p.coins < offer.price) {
@@ -705,10 +792,93 @@
         }
         p.addCoins(-offer.price);
         offer.sold = true;
-        p.equipWeapon(offer.id, { dropCurrent: true });
+        p.equipWeapon(offer.id, { pickup: true, dropCurrent: true });
         this.shopNotice = '交易达成。兵刃已入手。';
       }
       this.audio.sfx('pickup');
+    }
+
+    buyTool(index) {
+      if (this.state !== 'shop' || !this.player) return;
+      const offer = this.shopTools[index];
+      if (!offer || offer.sold) return;
+      const p = this.player;
+      if (p.coins < offer.price) {
+        this.shopNotice = '金币不足，学姐把工具收回匣子里。';
+        this.audio.sfx('uiBack');
+        return;
+      }
+      p.addCoins(-offer.price);
+      offer.sold = true;
+      if (offer.id === 'summon_wand') p.tools.wand = (p.tools.wand || 0) + 1;
+      else if (offer.id === 'review_notes') p.tools.review = (p.tools.review || 0) + 1;
+      else if (offer.id === 'energy_flask') p.addEnergy(30);
+      this.shopNotice = '交易达成 · ' + offer.name;
+      this.audio.sfx('pickup');
+    }
+
+    /** 学姐的复习资料：记录当前房间与状态，死亡后从存档点复活。 */
+    useReviewNotes() {
+      const p = this.player;
+      if (!p || p.tools.review <= 0) {
+        this.ui.showToast('没有复习资料 · 去学姐摊位买一份', '#ffd36b', 1.4);
+        return false;
+      }
+      if (!this.room || this.room.type === 'boss') {
+        this.ui.showToast('庭主房无法存档', '#ff9b7a', 1.2);
+        return false;
+      }
+      p.tools.review--;
+      this.savePoint = {
+        floorIndex: this.floorIndex,
+        roomId: this.room.id,
+        x: p.x,
+        y: p.y,
+        hp: p.hp,
+        armor: p.armor
+      };
+      this.ui.showToast('复习资料 · 已存档', '#ffd36b', 2.0);
+      this.audio.sfx('levelup');
+      return true;
+    }
+
+    /** 学姐的唤兽法棒：召唤一只随机庭兽，消耗一根。 */
+    useSummonWand() {
+      const p = this.player;
+      if (!p || p.tools.wand <= 0) {
+        this.ui.showToast('没有唤兽法棒 · 去学姐摊位买一根', '#8ef0c8', 1.4);
+        return false;
+      }
+      p.tools.wand--;
+      const types = ['slime', 'skull', 'gargoyle', 'spider', 'tome', 'guard', 'moth', 'bell', 'rat'];
+      const type = types[Math.floor(Math.random() * types.length)];
+      this.spawnPet(type, p.x + U.rand(-28, 28), p.y + 30);
+      this.ui.showToast('唤兽法棒 · ' + (Ink.EnemyTypes[type] ? Ink.EnemyTypes[type].name : type) + ' 加入', '#8ef0c8', 1.6);
+      this.audio.sfx('levelup');
+      return true;
+    }
+
+    /** 从复习资料存档点复活；只消耗一次。 */
+    reviveFromSave() {
+      const save = this.savePoint;
+      if (!save) return false;
+      this.savePoint = null;
+      const p = this.player;
+      p.dead = false;
+      p.hp = Math.max(1, Math.round(p.maxHp * 0.5));
+      p.armor = Math.max(p.armor, 2);
+      p.invuln = 3;
+      this.state = 'playing';
+      this.enemies = [];
+      this.projectiles = [];
+      this.enterRoom(save.roomId, 'bottom');
+      p.hp = Math.max(1, Math.round(p.maxHp * 0.5));
+      p.armor = Math.max(p.armor, 2);
+      p.invuln = 3;
+      this.ui.showClearBanner('复习资料 · 重开一页', '从存档点继续', '#ffd36b');
+      this.ui.showToast('从存档点复活', '#ffd36b', 2.0);
+      this.audio.sfx('levelup');
+      return true;
     }
 
     closeShop() {
@@ -757,6 +927,77 @@
         }
         d.mode = 'follow';
       }
+    }
+
+    // ── 黄金台宠物 ───────────────────────────────────────
+    captureAvailable() {
+      const p = this.player;
+      if (!p || !p.hasWeapon || !p.hasWeapon('golden_altar')) return false;
+      if (this.captureUsed || this.captureTimer > 0) return false;
+      const living = this.enemies.filter((e) => !e.dead && !e.isBoss);
+      if (!living.length) return false;
+      const type = living[0].type;
+      if (!living.every((e) => e.type === type)) return false;
+      return true;
+    }
+
+    tryCapturePet() {
+      if (!this.captureAvailable()) {
+        if (this.player && this.player.hasWeapon && this.player.hasWeapon('golden_altar')) {
+          this.ui.showToast('黄金台：场上只剩一种怪物时才能吟唱', '#ffd36b', 1.4);
+        }
+        return false;
+      }
+      const living = this.enemies.filter((e) => !e.dead && !e.isBoss);
+      let target = living[0];
+      let best = 1e9;
+      for (const e of living) {
+        const d = U.dist2(this.player.x, this.player.y, e.x, e.y);
+        if (d < best) { best = d; target = e; }
+      }
+      if (Math.sqrt(best) > 300) {
+        this.ui.showToast('太远了 · 靠近再吟唱', '#ffd36b', 1.2);
+        return false;
+      }
+      this.captureTimer = 1.2;
+      this.captureType = target.type;
+      this.captureTarget = target;
+      this.captureNotice = '黄金台 · 吟唱收服中';
+      this.audio.sfx('skill');
+      Ink.FX.ring(this, { x: target.x, y: target.y, r0: 8, r1: 48, life: 0.7, color: '#ffd36b', width: 3 });
+      return true;
+    }
+
+    finishCapture() {
+      const target = this.captureTarget;
+      this.captureTarget = null;
+      if (!target || target.dead) { this.captureTimer = 0; return; }
+      this.captureUsed = true;
+      target.dead = true;
+      this.enemies = this.enemies.filter((e) => e !== target);
+      this.spawnPet(this.captureType || target.type, target.x, target.y);
+      this.ui.showClearBanner('黄金台 · 收服', '它现在替你作战', '#ffd36b');
+      Ink.FX.burst(this, target.x, target.y, ['#ffd36b', '#fff6dc'], 28, 150, { size: 3, glow: true });
+      this.audio.sfx('levelup');
+      this.captureTimer = 0;
+    }
+
+    spawnPet(type, x, y) {
+      const pet = new Ink.Pet(this, type, x, y);
+      this.pets.push(pet);
+      return pet;
+    }
+
+    clearPets() {
+      if (!this.pets || !this.pets.length) return;
+      for (const pet of this.pets) {
+        Ink.FX.burst(this, pet.x, pet.y, [pet.tint, '#ffffff'], 10, 90, { size: 2 });
+      }
+      this.pets = [];
+    }
+
+    revivePets() {
+      for (const pet of this.pets) pet.revive();
     }
 
     enterFloor(index, healOnEnter = true) {
@@ -823,6 +1064,9 @@
       this.afterTimers = [];
       this.boss = null;
       this.portal = null;
+      this.captureTimer = 0;
+      this.captureUsed = false;
+      this.captureTarget = null;
       FX.reset();
 
       this.room = target;
@@ -1140,6 +1384,18 @@
 
       const p = this.player;
       if (!p) return;
+
+      if (this.input.wasPressed('KeyR')) this.tryCapturePet();
+      if (this.input.wasPressed('KeyT')) this.useReviewNotes();
+      if (this.input.wasPressed('KeyF')) this.useSummonWand();
+      if (this.captureTimer > 0) {
+        this.captureTimer -= dt;
+        p.captureSlow = 0.35;
+        if (this.captureTimer <= 0) this.finishCapture();
+      } else if (p) {
+        p.captureSlow = 1;
+      }
+
       p.update(dt);
       this.resolveObstacles(p);
       this.updateTraps(dt);
@@ -1156,6 +1412,11 @@
         this.dog.update(dt);
         this.resolveObstacles(this.dog);
         if (this.state !== 'playing') return;
+      }
+
+      for (const pet of this.pets) {
+        pet.update(dt);
+        this.resolveObstacles(pet);
       }
 
       for (const e of this.enemies) {
@@ -1269,6 +1530,8 @@
         this.audio.sfx('boss');
         return;
       }
+
+      this.revivePets();
 
       // 事件房：守室精英清完后弹出事件，不直接算作已清。
       if (room.type === 'event') {
@@ -1420,13 +1683,18 @@
           });
         }
       }
-      if (this.player) this.player.addEnergy(opts.boss ? 24 : 4);
+      if (this.player) this.player.addEnergy(opts.boss ? 36 : 6);
       if (opts.boss) {
         this.dropCoin(enemy.x, enemy.y, 24);
-        for (let i = 0; i < 5; i++) this.dropEnergy(enemy.x + U.rand(-30, 30), enemy.y + U.rand(-24, 24), 8);
+        for (let i = 0; i < 6; i++) this.dropEnergy(enemy.x + U.rand(-34, 34), enemy.y + U.rand(-24, 24), 10);
       } else {
         if (Math.random() < 0.72) this.dropCoin(enemy.x, enemy.y, U.randInt(1, 2));
-        if (Math.random() < (enemy.elite ? 0.7 : 0.35)) this.dropEnergy(enemy.x, enemy.y, 8);
+        if (Math.random() < (enemy.elite ? 0.8 : 0.45)) this.dropEnergy(enemy.x, enemy.y, 10);
+        // 宠物击杀的普通怪有概率被黄金台转化为新宠物；Boss 不转化。
+        if (opts.pet && this.player && this.player.hasWeapon('golden_altar') && Math.random() < 0.5) {
+          this.spawnPet(enemy.type, enemy.x, enemy.y);
+          this.ui.showToast('黄金台 · 战利品化为庭兽', '#ffd36b', 1.4);
+        }
       }
       if (enemy.elite || opts.boss) {
         if (Math.random() < (opts.boss ? 1 : 0.35)) {
@@ -1660,6 +1928,7 @@
       } else if (this.dog) {
         ents.push(this.dog);
       }
+      for (const pet of this.pets) ents.push(pet);
       for (const e of this.enemies) if (!e.dead) ents.push(e);
       ents.sort((a, b) => (a.y - b.y) || ((a.radius || 0) - (b.radius || 0)));
       for (const ent of ents) ent.draw(ctx, this);

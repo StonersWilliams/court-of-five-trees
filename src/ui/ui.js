@@ -171,6 +171,12 @@
       this.codexTab = 'enemy';
       this.codexIndex = 0;
       this.codexScroll = 0;
+      // 武器图鉴：与敌怪图鉴并列的独立覆盖层。
+      this.weaponCodexOpen = false;
+      this.weaponCodexIndex = 0;
+      this.weaponCodexPage = 0;
+      this.tutorialOpen = false;
+      this.tutorialPage = 0;
     }
 
     showToast(message, color = PAL.gold, duration = 1.9) {
@@ -196,8 +202,16 @@
       const events = input.drainEvents();
       const state = this.game.state;
 
+      if (this.tutorialOpen) {
+        this._updateTutorial(input, events);
+        return;
+      }
       if (this.codexOpen) {
         this._updateCodex(input, events);
+        return;
+      }
+      if (this.weaponCodexOpen) {
+        this._updateWeaponCodex(input, events);
         return;
       }
 
@@ -256,14 +270,25 @@
           this.game.toSelect();
         } else if (input.wasPressed('KeyC')) {
           this.openCodex('enemy');
+        } else if (input.wasPressed('KeyB')) {
+          this.openWeaponCodex();
         }
       } else if (state === 'select') {
+        const n = Math.max(1, Ink.CharacterList.length);
         if (input.wasPressed('ArrowLeft', 'KeyA')) {
-          this.selectIndex = (this.selectIndex + 4) % 5;
+          this.selectIndex = (this.selectIndex + n - 1) % n;
           this.game.audio.sfx('ui');
         }
         if (input.wasPressed('ArrowRight', 'KeyD')) {
-          this.selectIndex = (this.selectIndex + 1) % 5;
+          this.selectIndex = (this.selectIndex + 1) % n;
+          this.game.audio.sfx('ui');
+        }
+        if (input.wasPressed('ArrowUp', 'KeyW')) {
+          this.selectIndex = (this.selectIndex + n - 1) % n;
+          this.game.audio.sfx('ui');
+        }
+        if (input.wasPressed('ArrowDown', 'KeyS')) {
+          this.selectIndex = (this.selectIndex + 1) % n;
           this.game.audio.sfx('ui');
         }
         if (input.wasPressed('Enter', 'Space')) {
@@ -522,6 +547,241 @@
       });
     }
 
+    // ── 兵器图鉴 ──────────────────────────────────────────
+    openWeaponCodex() {
+      this.weaponCodexOpen = true;
+      this.weaponCodexIndex = 0;
+      this.weaponCodexPage = 0;
+      this.game.audio.sfx('ui');
+    }
+
+    _weaponCodexList() {
+      const ids = [];
+      for (const id of Ink.WeaponList) ids.push(id);
+      for (const id of Object.values(Ink.Weapons.STARTING || {})) ids.push(id);
+      for (const id of Object.values(Ink.BossWeapons || {})) ids.push(id);
+      return Array.from(new Set(ids)).map((id) => Ink.Weapons.get(id)).filter(Boolean);
+    }
+
+    _updateWeaponCodex(input, events) {
+      for (const e of events) {
+        if (e.pointerType === 'touch') this.game.touchMode = true;
+        if (e.type !== 'down') continue;
+        for (let i = this.buttons.length - 1; i >= 0; i--) {
+          const b = this.buttons[i];
+          if (hit(b, e.x, e.y)) {
+            this.game.audio.sfx('ui');
+            b.onClick();
+            return;
+          }
+        }
+      }
+      const list = this._weaponCodexList();
+      const pages = Math.max(1, Math.ceil(list.length / 9));
+      if (input.wasPressed('Escape', 'KeyQ')) {
+        this.weaponCodexOpen = false;
+        this.game.audio.sfx('uiBack');
+        return;
+      }
+      if (input.wasPressed('ArrowLeft')) {
+        this.weaponCodexPage = (this.weaponCodexPage + pages - 1) % pages;
+        this.weaponCodexIndex = this.weaponCodexPage * 9;
+      }
+      if (input.wasPressed('ArrowRight')) {
+        this.weaponCodexPage = (this.weaponCodexPage + 1) % pages;
+        this.weaponCodexIndex = this.weaponCodexPage * 9;
+      }
+      if (input.wasPressed('ArrowDown')) this.weaponCodexIndex = Math.min(list.length - 1, this.weaponCodexIndex + 1);
+      if (input.wasPressed('ArrowUp')) this.weaponCodexIndex = Math.max(0, this.weaponCodexIndex - 1);
+    }
+
+    _drawWeaponCodex(ctx) {
+      const list = this._weaponCodexList();
+      const pages = Math.max(1, Math.ceil(list.length / 9));
+      this.weaponCodexPage = U.clamp(this.weaponCodexPage, 0, pages - 1);
+      this.weaponCodexIndex = U.clamp(this.weaponCodexIndex, 0, list.length - 1);
+      const def = list[this.weaponCodexIndex];
+      this.buttons = [];
+
+      ctx.fillStyle = 'rgba(4,3,9,.86)';
+      ctx.fillRect(0, 0, 960, 600);
+      panel(ctx, 36, 32, 888, 536, {
+        fill: 'rgba(12,10,21,.98)', border: 'rgba(232,193,112,.65)', accent: 'rgba(232,193,112,.25)'
+      });
+      text(ctx, '兵 刃 图 鉴', 64, 60, { size: 24, color: PAL.parchment, bold: true });
+      text(ctx, 'WEAPON CODEX', 230, 62, { size: 10, color: PAL.gold, bold: true });
+      text(ctx, '五十四柄兵刃 · 刀笔剑戟，各有各的脾气。', 64, 80, { size: 9, color: PAL.muted });
+
+      const pageList = list.slice(this.weaponCodexPage * 9, this.weaponCodexPage * 9 + 9);
+      for (let i = 0; i < pageList.length; i++) {
+        const d = pageList[i];
+        const idx = this.weaponCodexPage * 9 + i;
+        const col = i % 3;
+        const row = Math.floor(i / 3);
+        const x = 62 + col * 168;
+        const y = 104 + row * 126;
+        const sel = idx === this.weaponCodexIndex;
+        const rarity = Ink.Rarity[d.rarity] || Ink.Rarity.common;
+        panel(ctx, x, y, 154, 116, {
+          fill: sel ? 'rgba(62,49,31,.96)' : 'rgba(27,23,41,.98)',
+          border: sel ? PAL.gold : 'rgba(109,99,136,.8)',
+          accent: U.rgba(d.color, .45)
+        });
+        Ink.Weapons.drawIcon(ctx, x + 77, y + 34, 1.55, d.id, this.time);
+        text(ctx, d.name, x + 77, y + 70, {
+          size: d.name.length > 6 ? 9 : 11, color: PAL.parchment, align: 'center', bold: true
+        });
+        text(ctx, '威伤 ' + d.damage, x + 77, y + 88, {
+          size: 8.5, color: rarity.color, align: 'center'
+        });
+        text(ctx, rarity.name, x + 77, y + 101, {
+          size: 8, color: PAL.muted, align: 'center'
+        });
+        this.buttons.push({ x, y, w: 154, h: 116, onClick: () => { this.weaponCodexIndex = idx; } });
+      }
+
+      // 右侧详情
+      if (def) {
+        const rarity = Ink.Rarity[def.rarity] || Ink.Rarity.common;
+        panel(ctx, 580, 104, 316, 354, {
+          fill: 'rgba(17,14,28,.96)', border: U.rgba(def.color, .7), accent: U.rgba(def.color, .2)
+        });
+        Ink.Weapons.drawIcon(ctx, 738, 166, 2.7, def.id, this.time);
+        text(ctx, def.name, 738, 220, { size: 21, color: PAL.parchment, align: 'center', bold: true });
+        text(ctx, rarity.name + ' · 威伤 ' + def.damage + ' · 冷却 ' + def.cooldown.toFixed(2) + 's',
+          738, 242, { size: 9, color: rarity.color, align: 'center' });
+        wrapped(ctx, def.desc, 602, 270, 272, {
+          size: 9, color: PAL.parchment2, lineHeight: 14, maxLines: 5
+        });
+        const tags = [];
+        if (def.melee) tags.push('近战');
+        if (def.charged) tags.push('蓄力');
+        if (def.clearShots) tags.push('清弹');
+        if (def.pierce) tags.push('穿透 ' + def.pierce);
+        if (def.homing) tags.push('追踪');
+        if (def.bounce) tags.push('弹射');
+        text(ctx, tags.join(' · ') || '远程', 738, 370, {
+          size: 9, color: def.color, align: 'center'
+        });
+      }
+
+      this._button(ctx, { x: 588, y: 476, w: 80, h: 28 }, '‹ 上页', {
+        size: 10, onClick: () => {
+          this.weaponCodexPage = (this.weaponCodexPage + pages - 1) % pages;
+          this.weaponCodexIndex = this.weaponCodexPage * 9;
+        }
+      });
+      text(ctx, (this.weaponCodexPage + 1) + ' / ' + pages, 738, 490, {
+        size: 9, color: PAL.muted, align: 'center'
+      });
+      this._button(ctx, { x: 808, y: 476, w: 80, h: 28 }, '下页 ›', {
+        size: 10, onClick: () => {
+          this.weaponCodexPage = (this.weaponCodexPage + 1) % pages;
+          this.weaponCodexIndex = this.weaponCodexPage * 9;
+        }
+      });
+      this._button(ctx, { x: 760, y: 522, w: 136, h: 28 }, '关 闭 图 鉴', {
+        size: 10, onClick: () => { this.weaponCodexOpen = false; this.game.audio.sfx('uiBack'); }
+      });
+      text(ctx, '↑↓ 选择 · ←→ 翻页 · Esc 关闭', 62, 542, {
+        size: 9, color: 'rgba(109,99,136,.8)'
+      });
+    }
+
+    // ── 新手导引 ──────────────────────────────────────────
+    _tutorialPages() {
+      return [
+        {
+          title: '一 · 入庭',
+          body: 'WASD / 左侧摇杆移动，鼠标 / 右侧摇杆瞄准。\n左键或触屏攻击键开火；空格 / 右键 / 技能键施放主动技能。\nQ 切换武器，G 丢弃当前武器。'
+        },
+        {
+          title: '二 · 生命、护盾与能量',
+          body: '生命上限 20，受击 1–15 点，归零即失败；脱战 4.5 秒后护盾每秒回复 1 点。\n能量驱动武器，不足时可用手刀；技能不耗能量。\n击杀与能量球都会补充能量。'
+        },
+        {
+          title: '三 · 蓄力',
+          body: '长按左键蓄力，角色头顶出现蓄力条，松开释放。\n蓝条代表蓄力，金色区间是完美区间，在区间内释放伤害最高。\n部分武器满蓄自动释放；蓄力期间移速下降。'
+        },
+        {
+          title: '四 · 关卡与机缘',
+          body: '清空房间后门才会打开；部分房间分两波。\n每层第 2、4、6 关后，以及击败庭主后，可以三选一机制被动。\n被动可重复叠加，左侧「机缘」栏随时查看。'
+        },
+        {
+          title: '五 · 行商与黄金台',
+          body: '行商房间里：学长卖攻击兵刃，学姐卖唤兽法棒、复习资料与能量瓶。\n装备黄金台后，场上只剩一种怪物时可按 R 吟唱收服；宠物会独立作战，房间清空后复活。\n最多携带两把武器，书箧被动可增加槽位。'
+        }
+      ];
+    }
+
+    _updateTutorial(input, events) {
+      const pages = this._tutorialPages();
+      for (const e of events) {
+        if (e.type !== 'down') continue;
+        for (let i = this.buttons.length - 1; i >= 0; i--) {
+          const b = this.buttons[i];
+          if (hit(b, e.x, e.y)) {
+            this.game.audio.sfx('ui');
+            b.onClick();
+            return;
+          }
+        }
+      }
+      if (input.wasPressed('Escape')) {
+        this.tutorialOpen = false;
+        this.game.audio.sfx('uiBack');
+        return;
+      }
+      if (input.wasPressed('ArrowLeft')) this.tutorialPage = Math.max(0, this.tutorialPage - 1);
+      if (input.wasPressed('ArrowRight')) this.tutorialPage = Math.min(pages.length - 1, this.tutorialPage + 1);
+      if (input.wasPressed('Enter', 'Space')) {
+        if (this.tutorialPage >= pages.length - 1) {
+          this.tutorialOpen = false;
+          this.game.startTutorial();
+        } else {
+          this.tutorialPage++;
+        }
+      }
+    }
+
+    _drawTutorial(ctx) {
+      const pages = this._tutorialPages();
+      const page = pages[U.clamp(this.tutorialPage, 0, pages.length - 1)];
+      this.buttons = [];
+      ctx.fillStyle = 'rgba(4,3,9,.84)';
+      ctx.fillRect(0, 0, 960, 600);
+      panel(ctx, 150, 78, 660, 440, {
+        fill: 'rgba(14,11,23,.99)', border: 'rgba(143,214,255,.6)', accent: 'rgba(143,214,255,.18)'
+      });
+      drawCornerMarks(ctx, 150, 78, 660, 440, '#8fd6ff');
+      text(ctx, '新 手 导 引', 480, 120, { size: 26, color: PAL.parchment, align: 'center', bold: true });
+      text(ctx, page.title, 480, 160, { size: 15, color: '#8fd6ff', align: 'center', bold: true });
+      wrapped(ctx, page.body, 480, 192, 570, {
+        size: 11, color: PAL.parchment2, lineHeight: 23, align: 'center', maxLines: 9
+      });
+      for (let i = 0; i < pages.length; i++) {
+        ctx.fillStyle = i === this.tutorialPage ? PAL.gold : 'rgba(109,99,136,.5)';
+        ctx.fillRect(480 - pages.length * 8 + i * 16, 454, 10, 4);
+      }
+      this._button(ctx, { x: 190, y: 474, w: 100, h: 30 }, '‹ 上页', {
+        size: 10, onClick: () => { this.tutorialPage = Math.max(0, this.tutorialPage - 1); }
+      });
+      this._button(ctx, { x: 670, y: 474, w: 100, h: 30 }, '下页 ›', {
+        size: 10, onClick: () => { this.tutorialPage = Math.min(pages.length - 1, this.tutorialPage + 1); }
+      });
+      const last = this.tutorialPage >= pages.length - 1;
+      this._button(ctx, { x: 380, y: 474, w: 200, h: 30 }, last ? '进 入 试 炼' : '继 续 了 解', {
+        size: 11, selected: true,
+        onClick: () => {
+          if (last) { this.tutorialOpen = false; this.game.startTutorial(); }
+          else this.tutorialPage++;
+        }
+      });
+      this._button(ctx, { x: 694, y: 88, w: 78, h: 22 }, '关 闭', {
+        size: 9, onClick: () => { this.tutorialOpen = false; this.game.audio.sfx('uiBack'); }
+      });
+    }
+
     _button(ctx, rect, label, opts = {}) {
       const mouse = this.game.input.mouse;
       const hover = !this.game.touchMode && hit(rect, mouse.x, mouse.y);
@@ -577,6 +837,12 @@
       const p = this.skillCenter;
 
       if (e.type === 'down') {
+        // 黄金台：触屏收服键。
+        const cr = this.captureRect;
+        if (cr && e.x >= cr.x && e.x <= cr.x + cr.w && e.y >= cr.y && e.y <= cr.y + cr.h) {
+          this.game.tryCapturePet();
+          return;
+        }
         // 武器卡上的“丢”按钮（优先于摇杆，避免误触移动）。
         const dr = this.weaponDropRect;
         if (dr && e.x >= dr.x && e.x <= dr.x + dr.w && e.y >= dr.y && e.y <= dr.y + dr.h) {
@@ -640,6 +906,8 @@
       else if (state === 'title') {
         this._drawTitle(ctx);
         if (this.codexOpen) this._drawCodex(ctx);
+        if (this.weaponCodexOpen) this._drawWeaponCodex(ctx);
+        if (this.tutorialOpen) this._drawTutorial(ctx);
       } else if (state === 'select') this._drawSelect(ctx);      else if (state === 'levelup') {
         this._drawHUD(ctx);
         this._drawLevelUp(ctx);
@@ -887,7 +1155,7 @@
       });
 
       const pulse = 0.55 + Math.sin(t * 2.4) * 0.18;
-      text(ctx, '五层 · 每层七关 · 十三守门人 · 五十三兵刃', 480, 330, {
+      text(ctx, '五层 · 每层七关 · 十三守门人 · 五十四兵刃', 480, 330, {
         size: 12, color: U.rgba(PAL.muted, pulse), align: 'center'
       });
 
@@ -909,17 +1177,25 @@
         size: 10,
         onClick: () => this.openCodex('enemy')
       });
+      this._button(ctx, { x: 166, y: 532, w: 130, h: 30 }, '兵 刃 图 鉴', {
+        size: 10,
+        onClick: () => this.openWeaponCodex()
+      });
+      this._button(ctx, { x: 304, y: 532, w: 130, h: 30 }, '新 手 导 引', {
+        size: 10,
+        onClick: () => { this.tutorialOpen = true; this.tutorialPage = 0; this.game.audio.sfx('ui'); }
+      });
 
       text(ctx, 'WASD 移动   ·   鼠标瞄准   ·   左键开火   ·   空格/右键技能   ·   G 丢武器', 480, 508, {
         size: 10, color: PAL.muted, align: 'center'
       });
-      text(ctx, '触屏：左下摇杆移动，右下按钮技能；被动 / 商店 / 丢弃均可直接点选', 480, 528, {
-        size: 10, color: 'rgba(109,99,136,.8)', align: 'center'
+      text(ctx, '触屏：左下摇杆移动，右下按钮技能；被动 / 商店 / 兵刃 / 丢武器均可直接点选', 480, 578, {
+        size: 9, color: 'rgba(109,99,136,.8)', align: 'center'
       });
-      text(ctx, 'MIT License · 零依赖 · 程序化像素美术 / WebAudio 音效', 36, 580, {
-        size: 9, color: 'rgba(109,99,136,.7)'
+      text(ctx, 'MIT License · 零依赖 · 程序化像素美术 / WebAudio 音效', 36, 594, {
+        size: 8, color: 'rgba(109,99,136,.7)'
       });
-      text(ctx, 'v4.1.1', 924, 580, { size: 9, color: 'rgba(109,99,136,.7)', align: 'right' });
+      text(ctx, 'v5.0.0', 924, 580, { size: 9, color: 'rgba(109,99,136,.7)', align: 'right' });
     }
 
     // ── 角色选择 ──────────────────────────────────────────
@@ -1166,6 +1442,11 @@
         if (game.boss && !game.boss.dead) {
           this._drawBossBar(ctx, game.boss);
         }
+        if (game.tutorialMode) {
+          text(ctx, '新手试炼 · 木桩不会反击 · 按 ESC 暂停后可退出', 480, 54, {
+            size: 9, color: '#8fd6ff', align: 'center'
+          });
+        }
       }
 
       // 小地图
@@ -1198,6 +1479,26 @@
         text(ctx, '拖动左侧摇杆 · 点击右侧技能 · 自动开火 · 面板直接点选', 480, 588, {
           size: 9, color: 'rgba(207,192,157,.42)', align: 'center'
         });
+      }
+
+      // 黄金台：可收服 / 吟唱进度。
+      this.captureRect = null;
+      if (game.touchMode && p.hasWeapon('golden_altar')) {
+        const cr = { x: 744, y: 552, w: 56, h: 24 };
+        this.captureRect = cr;
+        panel(ctx, cr.x, cr.y, cr.w, cr.h, { fill: 'rgba(8,6,15,.9)', border: 'rgba(255,211,107,.55)' });
+        text(ctx, '收 服', cr.x + cr.w / 2, cr.y + 16, {
+          size: 9, color: game.captureAvailable && game.captureAvailable() ? '#ffd36b' : PAL.muted,
+          align: 'center', bold: true
+        });
+      }
+      if (game.captureTimer > 0) {
+        panel(ctx, 340, 474, 280, 34, { fill: 'rgba(8,6,15,.94)', border: 'rgba(255,211,107,.7)' });
+        text(ctx, '黄金台 · 吟唱收服', 480, 486, { size: 10, color: '#ffd36b', align: 'center', bold: true });
+        bar(ctx, 360, 494, 240, 6, 1 - game.captureTimer / 1.2, '#ffd36b', { segments: false });
+      } else if (game.captureAvailable && game.captureAvailable()) {
+        panel(ctx, 360, 474, 240, 28, { fill: 'rgba(8,6,15,.9)', border: 'rgba(255,211,107,.55)' });
+        text(ctx, 'R · 黄金台收服', 480, 489, { size: 10, color: '#ffd36b', align: 'center', bold: true });
       }
 
       // 低血量红色警戒
@@ -1403,6 +1704,36 @@
       const y = game.touchMode ? 348 : 526;
       panel(ctx, x, y, w, 54, { fill: 'rgba(10,8,18,.9)' });
       const wdef = p.weapon;
+
+      // 学姐工具与黄金台提示。
+      const toolLine = '法棒×' + (p.tools.wand || 0) + '  资料×' + (p.tools.review || 0) +
+        (p.hasWeapon('golden_altar') ? '   R 收服' : '');
+      if (toolLine.trim()) {
+        text(ctx, toolLine, x + 2, y - 30, { size: 8, color: 'rgba(207,192,157,.62)' });
+      }
+
+      // 双武器槽：武器卡上方一排小格，Q / 点按切换。
+      if ((p.maxWeaponSlots || 2) > 1) {
+        for (let i = 0; i < p.maxWeaponSlots; i++) {
+          const id = p.weaponSlots[i];
+          const active = i === p.weaponSlot;
+          const sw = (w - 6 * (p.maxWeaponSlots - 1)) / p.maxWeaponSlots;
+          const sx = x + i * (sw + 6);
+          ctx.fillStyle = active ? 'rgba(232,193,112,.20)' : 'rgba(8,6,15,.86)';
+          ctx.fillRect(sx, y - 20, sw, 17);
+          ctx.strokeStyle = active ? PAL.gold : 'rgba(109,99,136,.5)';
+          ctx.lineWidth = 1;
+          ctx.strokeRect(sx + 0.5, y - 19.5, sw - 1, 16);
+          let label = (i + 1) + ' 空';
+          if (id && id !== 'fists') {
+            const d = Ink.Weapons.get(id);
+            label = (i + 1) + ' ' + (d ? d.name : id);
+          }
+          text(ctx, label, sx + sw / 2, y - 11, {
+            size: 7.5, color: active ? PAL.gold2 : PAL.muted, align: 'center', bold: active
+          });
+        }
+      }
       Ink.Weapons.drawIcon(ctx, x + 26, y + 26, 1.4, wdef.id, this.time);
       text(ctx, wdef.name, x + 48, y + 14, {
         size: 11, color: wdef.color, bold: true
@@ -1420,8 +1751,19 @@
         size: 8, color: shortage ? '#ff7d7d' : (wdef.charged ? '#ffe6a8' : 'rgba(207,192,157,.62)')
       });
 
-      // 武器可以主动丢弃；触屏点小按钮，桌面按 G。
+      // 武器可以主动丢弃 / 切换；触屏点小按钮，桌面按 G / Q。
       this.weaponDropRect = null;
+      if ((p.maxWeaponSlots || 2) > 1) {
+        if (this.game.touchMode) {
+          this._button(ctx, { x: x + w - 42, y: y + 15, w: 30, h: 14 }, '换', {
+            size: 8, onClick: () => p.switchWeapon()
+          });
+        } else {
+          text(ctx, 'Q 换兵', x + w - 10, y + 32, {
+            size: 8, color: 'rgba(207,192,157,.42)', align: 'right'
+          });
+        }
+      }
       if (wdef.id !== 'fists') {
         if (this.game.touchMode) {
           const dropRect = { x: x + w - 42, y: y + 33, w: 30, h: 16 };
@@ -1784,79 +2126,134 @@
     // ── 行商 ──────────────────────────────────────────────
     _drawShop(ctx) {
       ctx.save();
-      ctx.fillStyle = 'rgba(4,3,9,.8)';
+      ctx.fillStyle = 'rgba(4,3,9,.82)';
       ctx.fillRect(0, 0, 960, 600);
       ctx.restore();
 
       const p = this.game.player;
-      panel(ctx, 80, 52, 800, 500, { fill: 'rgba(15,12,18,.98)', border: 'rgba(232,193,112,.55)' });
-      drawCornerMarks(ctx, 80, 52, 800, 500, PAL.gold);
-      text(ctx, '行 商', 480, 92, {
-        size: 28, color: PAL.gold, align: 'center', bold: true
+      const tab = this.game.shopTab || 'weapon';
+      panel(ctx, 70, 42, 820, 516, { fill: 'rgba(15,12,18,.98)', border: 'rgba(232,193,112,.55)' });
+      drawCornerMarks(ctx, 70, 42, 820, 516, PAL.gold);
+      text(ctx, '庭 中 行 商', 480, 78, {
+        size: 26, color: PAL.gold, align: 'center', bold: true
       });
-      text(ctx, '金币或生命，都可以换一把趁手的兵刃。', 480, 120, {
-        size: 11, color: PAL.muted, align: 'center'
+      text(ctx, '学长的兵刃铺 · 学姐的杂货摊', 480, 104, {
+        size: 10, color: PAL.muted, align: 'center'
       });
       if (p) {
-        text(ctx, '金币 ' + p.coins + '   ·   生命 ' + Math.ceil(p.hp) + ' / ' + Math.round(p.maxHp), 850, 92, {
+        text(ctx, '金币 ' + p.coins + '   ·   生命 ' + Math.ceil(p.hp) + ' / ' + Math.round(p.maxHp), 852, 80, {
           size: 10, color: '#ffd36b', align: 'right'
         });
       }
 
-      const offers = this.game.shopOffers || [];
-      const cw = 230, gap = 18;
-      const x0 = (960 - (offers.length * cw + (offers.length - 1) * gap)) / 2;
-      for (let i = 0; i < offers.length; i++) {
-        const offer = offers[i];
-        const def = Ink.Weapons.get(offer.id);
-        if (!def) continue;
-        const x = x0 + i * (cw + gap);
-        const y = 144;
-        const h = 320;
-        const rarity = Ink.Rarity[def.rarity] || Ink.Rarity.common;
-        panel(ctx, x, y, cw, h, {
-          fill: offer.sold ? 'rgba(14,12,18,.9)' : 'rgba(24,20,29,.97)',
-          border: offer.sold ? 'rgba(69,58,96,.6)' : rarity.color,
-          accent: U.rgba(def.color, 0.35)
-        });
-        ctx.fillStyle = def.color;
-        ctx.fillRect(x + 5, y + 5, cw - 10, 3);
+      this._button(ctx, { x: 150, y: 116, w: 250, h: 34 }, '学 长 · 攻 击 兵 刃', {
+        size: 12, selected: tab === 'weapon',
+        onClick: () => { this.game.shopTab = 'weapon'; this.game.audio.sfx('ui'); }
+      });
+      this._button(ctx, { x: 560, y: 116, w: 250, h: 34 }, '学 姐 · 增 益 工 具', {
+        size: 12, selected: tab === 'tool',
+        onClick: () => { this.game.shopTab = 'tool'; this.game.audio.sfx('ui'); }
+      });
 
-        Ink.Weapons.drawIcon(ctx, x + cw / 2, y + 66, 2.3, def.id, this.time);
-        text(ctx, def.name, x + cw / 2, y + 118, {
-          size: 19, color: def.color, align: 'center', bold: true
-        });
-        text(ctx, rarity.name + ' · 威伤 ' + def.damage, x + cw / 2, y + 142, {
-          size: 9, color: rarity.color, align: 'center'
-        });
-        wrapped(ctx, def.desc, x + cw / 2, y + 166, cw - 40, {
-          size: 9, color: PAL.parchment2, lineHeight: 14, align: 'center', maxLines: 3
-        });
-
-        if (offer.sold) {
-          text(ctx, '已 售 出', x + cw / 2, y + 242, {
-            size: 16, color: PAL.muted, align: 'center', bold: true
+      if (tab === 'weapon') {
+        const offers = this.game.shopOffers || [];
+        const cw = 226, gap = 18;
+        const x0 = (960 - (offers.length * cw + (offers.length - 1) * gap)) / 2;
+        for (let i = 0; i < offers.length; i++) {
+          const offer = offers[i];
+          const def = Ink.Weapons.get(offer.id);
+          if (!def) continue;
+          const x = x0 + i * (cw + gap);
+          const y = 168;
+          const h = 312;
+          const rarity = Ink.Rarity[def.rarity] || Ink.Rarity.common;
+          panel(ctx, x, y, cw, h, {
+            fill: offer.sold ? 'rgba(14,12,18,.9)' : 'rgba(24,20,29,.97)',
+            border: offer.sold ? 'rgba(69,58,96,.6)' : rarity.color,
+            accent: U.rgba(def.color, 0.35)
           });
-        } else {
-          this._button(ctx, { x: x + 22, y: y + 224, w: cw - 44, h: 32 }, '金币 ' + offer.price, {
-            size: 12, disabled: p.coins < offer.price,
-            onClick: () => this.game.buyWeapon(i, false)
+          ctx.fillStyle = def.color;
+          ctx.fillRect(x + 5, y + 5, cw - 10, 3);
+          Ink.Weapons.drawIcon(ctx, x + cw / 2, y + 62, 2.15, def.id, this.time);
+          text(ctx, def.name, x + cw / 2, y + 110, {
+            size: 18, color: def.color, align: 'center', bold: true
           });
-          const hpCost = p ? Math.ceil(p.maxHp * 0.25) : 0;
-          this._button(ctx, { x: x + 22, y: y + 262, w: cw - 44, h: 32 }, '生命 ' + hpCost, {
-            size: 12, disabled: p.hp <= hpCost + 1,
-            onClick: () => this.game.buyWeapon(i, true)
+          text(ctx, rarity.name + ' · 威伤 ' + def.damage, x + cw / 2, y + 133, {
+            size: 9, color: rarity.color, align: 'center'
+          });
+          wrapped(ctx, def.desc, x + cw / 2, y + 154, cw - 36, {
+            size: 8.5, color: PAL.parchment2, lineHeight: 13, align: 'center', maxLines: 3
+          });
+          if (offer.sold) {
+            text(ctx, '已 售 出', x + cw / 2, y + 242, {
+              size: 15, color: PAL.muted, align: 'center', bold: true
+            });
+          } else {
+            this._button(ctx, { x: x + 20, y: y + 224, w: cw - 40, h: 30 }, '金币 ' + offer.price, {
+              size: 11, disabled: p.coins < offer.price,
+              onClick: () => this.game.buyWeapon(i, false)
+            });
+            const hpCost = p ? Math.ceil(p.maxHp * 0.25) : 0;
+            this._button(ctx, { x: x + 20, y: y + 260, w: cw - 40, h: 30 }, '生命 ' + hpCost, {
+              size: 11, disabled: p.hp <= hpCost + 1,
+              onClick: () => this.game.buyWeapon(i, true)
+            });
+          }
+          text(ctx, '#' + (i + 1), x + 14, y + 18, {
+            size: 9, color: rarity.color, bold: true
           });
         }
-        text(ctx, '#' + (i + 1), x + 14, y + 18, {
-          size: 9, color: rarity.color, bold: true
-        });
+      } else {
+        const offers = this.game.shopTools || [];
+        const cw = 232, gap = 20;
+        const x0 = (960 - (offers.length * cw + (offers.length - 1) * gap)) / 2;
+        for (let i = 0; i < offers.length; i++) {
+          const offer = offers[i];
+          const x = x0 + i * (cw + gap);
+          const y = 184;
+          const h = 264;
+          panel(ctx, x, y, cw, h, {
+            fill: offer.sold ? 'rgba(14,12,18,.9)' : 'rgba(24,20,29,.97)',
+            border: offer.sold ? 'rgba(69,58,96,.6)' : offer.color,
+            accent: U.rgba(offer.color, 0.35)
+          });
+          ctx.fillStyle = offer.color;
+          ctx.fillRect(x + 5, y + 5, cw - 10, 3);
+          this._button(ctx, { x: x + cw / 2 - 26, y: y + 34, w: 52, h: 52 }, offer.id === 'review_notes' ? '档' : offer.id === 'summon_wand' ? '兽' : '能', {
+            size: 22, disabled: true
+          });
+          text(ctx, offer.name, x + cw / 2, y + 112, {
+            size: 17, color: offer.color, align: 'center', bold: true
+          });
+          wrapped(ctx, offer.desc, x + cw / 2, y + 134, cw - 34, {
+            size: 9, color: PAL.parchment2, lineHeight: 14, align: 'center', maxLines: 3
+          });
+          if (offer.sold) {
+            text(ctx, '已 售 出', x + cw / 2, y + 210, {
+              size: 15, color: PAL.muted, align: 'center', bold: true
+            });
+          } else {
+            this._button(ctx, { x: x + 24, y: y + 208, w: cw - 48, h: 32 }, '金币 ' + offer.price, {
+              size: 12, disabled: p.coins < offer.price,
+              onClick: () => this.game.buyTool(i)
+            });
+          }
+          if (offer.id === 'review_notes') {
+            text(ctx, '按 T 存档 · 已有 ' + (p.tools.review || 0), x + cw / 2, y + 246, {
+              size: 8, color: PAL.muted, align: 'center'
+            });
+          } else if (offer.id === 'summon_wand') {
+            text(ctx, '按 F 召唤 · 已有 ' + (p.tools.wand || 0), x + cw / 2, y + 246, {
+              size: 8, color: PAL.muted, align: 'center'
+            });
+          }
+        }
       }
 
-      text(ctx, this.game.shopNotice || '', 480, 500, {
+      text(ctx, this.game.shopNotice || '', 480, 498, {
         size: 10, color: 'rgba(207,192,157,.65)', align: 'center'
       });
-      this._button(ctx, { x: 360, y: 514, w: 240, h: 30 }, '离 开 行 商', {
+      this._button(ctx, { x: 360, y: 512, w: 240, h: 30 }, '离 开 摊 位', {
         size: 12, onClick: () => this.game.closeShop()
       });
     }

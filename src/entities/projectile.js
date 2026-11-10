@@ -204,6 +204,20 @@
       const p = game.player;
       if (!p || p.dead) return;
 
+      // 宠物也会被敌方弹幕击中。
+      if (game.pets && game.pets.length) {
+        for (const pet of game.pets) {
+          if (pet.dead || this.hitSet.has(pet)) continue;
+          if (U.circleOverlap(this.x, this.y, this.radius, pet.x, pet.y, pet.radius)) {
+            this.hitSet.add(pet);
+            pet.takeDamage(this.damage);
+            Ink.FX.hit(game, this.x, this.y, Math.atan2(this.vy, this.vx), '#ffd36b');
+            this.dead = true;
+            return;
+          }
+        }
+      }
+
       // 影犬可以先挡下子弹
       const dog = game.dog;
       if (dog && dog.alive && !this.hitSet.has(dog) &&
