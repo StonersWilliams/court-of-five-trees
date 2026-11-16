@@ -1867,20 +1867,28 @@
         for (let i = 2; i >= 1; i--) {
           ctx.save();
           ctx.globalAlpha = 0.06 + i * 0.025;
-          Ink.Art.drawSprite(ctx, 'char:' + this.charId, this.x - mv.x * 7 * i, this.y + bob - mv.y * 4 * i, 2.2, {
+          Ink.Art.drawSprite(ctx, 'char:' + this.charId, this.x - mv.x * 7 * i, this.y + bob - mv.y * 4 * i, 1.7, {
             frame, flip: this.facing < 0, tint: accent
           });
           ctx.restore();
         }
       }
 
-      Ink.Art.drawSprite(ctx, 'char:' + this.charId, this.x, this.y + bob, 2.2, {
+      // 轮廓光：同图放大一点、用角色强调色剪影，暗色地面上也能看清英雄。
+      ctx.save();
+      ctx.globalAlpha = 0.15;
+      Ink.Art.drawSprite(ctx, 'char:' + this.charId, this.x, this.y + bob, 1.74, {
+        frame, flip: this.facing < 0, tint: accent
+      });
+      ctx.restore();
+
+      Ink.Art.drawSprite(ctx, 'char:' + this.charId, this.x, this.y + bob, 1.7, {
         frame,
         flip: this.facing < 0,
         alpha: blink ? 0.55 : 1
       });
       if (this.hitFlash > 0) {
-        Ink.Art.drawSprite(ctx, 'char:' + this.charId, this.x, this.y + bob, 2.2, {
+        Ink.Art.drawSprite(ctx, 'char:' + this.charId, this.x, this.y + bob, 1.7, {
           frame, flip: this.facing < 0, alpha: 0.5, tint: '#ffffff'
         });
       }

@@ -423,7 +423,7 @@ skillCdMax = baseCooldown × max(0.55, 1 - 0.10 × cooldown)
 1. `src/entities/boss.js` 的 `BOSSES` 增加配置。
 2. 实现同名 AI 方法，组合 `windup / after / fireAt / ring / fieldAt / aoeAt`。
 3. `src/dungeon/dungeon.js` 的 `BOSS_POOLS` 加入对应层。
-4. `src/core/pixelart.js` 的 `BOSS_BUILDERS` 画 24×24 立绘。
+4. `src/core/bosssprite.js` 的 `BUILDERS` 画 32×32 立绘，并补 `Ink.Codex.bosses` 条目。
 
 ### 新障碍
 

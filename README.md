@@ -12,7 +12,7 @@
 - **零运行时依赖、零构建步骤**：原生 JavaScript + Canvas 2D，`index.html` 中按顺序加载脚本。
 - **生命 / 护盾 / 能量三条资源**：生命上限 20，护盾优先承伤并在脱战 4.5 秒后回复，能量只驱动武器，主动技能不耗能；能量球 +8。
 - **手刀与蓄力**：无能量时可贴身用手刀；蓄力武器支持手动/自动/完美区间，蓄力时移速下降。
-- **所有运行时美术程序化生成**：24×24 精修角色、16×16 敌人、24×24 庭主、庭院地砖、五树、火把、门、武器图标均由 `src/core/pixelart.js` / `src/core/charsprite.js` 在运行时绘制；`assets/` 中另存一份 CC0 图集作为造型参考，游戏运行时不加载它。
+- **所有运行时美术程序化生成**：32×32 精修角色、16×16 敌人、32×32 庭主、庭院地砖、五树、火把、门、武器图标均由 `src/core/pixelart.js` / `src/core/charsprite.js` / `src/core/bosssprite.js` 在运行时绘制；`assets/` 中另存一份 CC0 图集作为造型参考，游戏运行时不加载它。
 - **所有音效 WebAudio 实时合成**：射击、挥砍、爆炸、受击、升级、Boss 咆哮与环境音乐都由 `src/core/audio.js` 生成。
 - **MIT License**：可自由 fork、修改、商用，保留版权声明即可。
 
@@ -306,8 +306,10 @@ inkbound-dungeon/
     ├── game.js                # 状态机、5 层 × 7 关、事件、障碍、商店、掉落、传送
     ├── core/
     │   ├── utils.js           # 数学、随机、颜色、几何、画布坐标
-    │   ├── pixelart.js        # 程序化像素精灵、十三守门人、五树、房间背景
-    │   ├── charsprite.js      # 8 位角色 24×24 精修像素与选人半身像
+    │   ├── pixelart.js        # 程序化像素精灵、五树、房间背景
+    │   ├── charsprite.js      # 8 位角色 32×32 精修像素与选人半身像
+    │   ├── bosssprite.js      # 13 位守门人 32×32 立绘与图鉴图标
+    │   ├── merchant.js        # 学长 / 学姐 24×24 行商建模与柜台
     │   ├── audio.js           # WebAudio 合成音效与环境音乐
     │   ├── input.js           # 键盘/鼠标/多点触控
     │   ├── effects.js         # 粒子、飘字、环、刀光、残影、力场、光柱
@@ -373,7 +375,7 @@ inkbound-dungeon/
 1. 在 `src/entities/boss.js` 的 `BOSSES` 中增加配置。
 2. 实现同名 AI 方法，使用 `windup / after / fireAt / ring / fieldAt / aoeAt` 组合招式。
 3. 在 `src/dungeon/dungeon.js` 的 `BOSS_POOLS` 中加入对应层级。
-4. 在 `src/core/pixelart.js` 的 `BOSS_BUILDERS` 中画一个 24×24 立绘。
+4. 在 `src/core/bosssprite.js` 的 `BUILDERS` 中画一个 32×32 立绘，并加入图鉴数据。
 
 ### 调整数值
 

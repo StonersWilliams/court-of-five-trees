@@ -114,7 +114,8 @@
       this.boss = true;
       this.elite = false;
       this.radius = conf.radius;
-      this.scale = conf.scale || 4;
+      // 32×32 新立绘：0.8 倍缩放后与旧 24×24 的世界尺寸接近。
+      this.scale = (conf.scale || 4) * 0.8;
       this.maxHp = Math.round(conf.hp * (1.18 + 0.62 * (this.floor - 1)));
       this.hp = this.maxHp;
       this.speedBase = conf.speed * (1 + 0.06 * (this.floor - 1));
